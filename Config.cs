@@ -37,6 +37,14 @@ namespace IzudisbotBSP
         /// <summary>봇 대시보드 / 페어링 API 의 베이스 URL. 모드 웹 UI 가 직접 호출함.</summary>
         public string BotApiBase { get; set; } = "https://izudisbot.izunya.dev";
 
+        // ---- 치지직(Chzzk) 연동 ----
+
+        /// <summary>치지직 채팅을 게임(BSP Chat/ChatRequest)으로 함께 연동할지 여부.</summary>
+        public bool ChzzkEnabled { get; set; } = false;
+
+        /// <summary>치지직 채널 ID (채널 URL 의 32자리 hex). 예: chzzk.naver.com/&lt;여기&gt;</summary>
+        public string ChzzkChannelId { get; set; } = "";
+
         // ---- 필터 ----
 
         /// <summary>게임으로 전달하지 않을(음소거) 채널 ID 목록</summary>

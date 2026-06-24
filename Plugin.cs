@@ -20,6 +20,7 @@ namespace IzudisbotBSP
         /// <summary>이 플러그인의 BSIPA metadata (버전 / id) — hello payload 등에 사용.</summary>
         public static PluginMetadata Self { get; private set; }
         private DiscordChatService _service;
+        private ChzzkChatService _chzzk;
         private WebServer _webServer;
 
         [Init]
@@ -38,8 +39,14 @@ namespace IzudisbotBSP
             CP_SDK.Chat.Service.RegisterExternalService(_service);
             Log.Info("DiscordChatService registered → " + (Config.Current.Url ?? "(unconfigured)"));
 
+            // 치지직 브리지도 같은 CP_SDK external service 로 등록 (활성화는 Config.ChzzkEnabled).
+            _chzzk = new ChzzkChatService(Config.Current, Log);
+            CP_SDK.Chat.Service.RegisterExternalService(_chzzk);
+            Log.Info("ChzzkChatService registered → " + (Config.Current.ChzzkEnabled
+                ? "enabled (" + Config.Current.ChzzkChannelId + ")" : "disabled"));
+
             // 로컬 웹 UI / 설정 메뉴는 BSP Chat 상태와 무관하게 항상 띄운다 (설정·페어링용).
-            _webServer = new WebServer(_service, Config.Current, Log);
+            _webServer = new WebServer(_service, _chzzk, Config.Current, Log);
             _webServer.Start();
 
             if (Config.Current.WebUIEnabled && Config.Current.OpenWebOnLaunch)
@@ -59,6 +66,7 @@ namespace IzudisbotBSP
         private void StartBridge()
         {
             _service?.Start();
+            _chzzk?.Start();         // 치지직 브리지도 함께 (내부에서 ChzzkEnabled 체크)
             VoiceIndicator.Init();   // 메인 스레드에서 GameObject 생성해야 함
         }
 
@@ -66,6 +74,7 @@ namespace IzudisbotBSP
         private void StopBridge()
         {
             _service?.Stop();
+            _chzzk?.Stop();
             try { VoiceIndicator.Shutdown(); } catch { /* 종료/씬 전환 중 무시 */ }
         }
 
@@ -79,6 +88,8 @@ namespace IzudisbotBSP
             _webServer = null;
             _service?.Stop();
             _service = null;
+            _chzzk?.Stop();
+            _chzzk = null;
             try { VoiceIndicator.Shutdown(); } catch { }
             Log?.Info("izudisbot-bsp disabled");
         }

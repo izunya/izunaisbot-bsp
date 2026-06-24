@@ -36,6 +36,7 @@
         <Compile Include="..\DiscordChatUser.cs" Link="DiscordChatUser.cs" />
         <Compile Include="..\DiscordChatMessage.cs" Link="DiscordChatMessage.cs" />
         <Compile Include="..\DiscordChatEmote.cs" Link="DiscordChatEmote.cs" />
+        <Compile Include="..\ChzzkChatService.cs" Link="ChzzkChatService.cs" />
         <Compile Include="..\WebServer.cs" Link="WebServer.cs" />
         <Compile Include="..\WebUiPage.cs" Link="WebUiPage.cs" />
         <Compile Include="..\InGameMenu.cs" Link="InGameMenu.cs" />

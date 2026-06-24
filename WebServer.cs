@@ -24,6 +24,7 @@ namespace IzudisbotBSP
     public class WebServer
     {
         private readonly DiscordChatService _service;
+        private readonly ChzzkChatService _chzzk;
         private readonly Config _config;
         private readonly IPALogger _log;
 
@@ -55,9 +56,10 @@ namespace IzudisbotBSP
             ContractResolver = new CamelCasePropertyNamesContractResolver()
         };
 
-        public WebServer(DiscordChatService service, Config config, IPALogger log)
+        public WebServer(DiscordChatService service, ChzzkChatService chzzk, Config config, IPALogger log)
         {
             _service = service;
+            _chzzk = chzzk;
             _config = config;
             _log = log;
         }
@@ -148,6 +150,18 @@ namespace IzudisbotBSP
                     WriteJson(res, BuildState());
                     return;
                 }
+                if (method == "POST" && path == "/api/chzzk/config")
+                {
+                    HandleChzzkConfig(ReadBody(req));
+                    WriteJson(res, BuildState());
+                    return;
+                }
+                if (method == "POST" && path == "/api/chzzk/clearlog")
+                {
+                    _chzzk?.ClearLog();
+                    WriteJson(res, BuildState());
+                    return;
+                }
                 if (method == "POST" && path == "/api/pair-receive")
                 {
                     // 모드 웹 UI 가 봇 페어링 API 에서 받은 raw 토큰을 여기로 전달.
@@ -189,7 +203,17 @@ namespace IzudisbotBSP
                 updateAvailable = UpdateChecker.UpdateAvailable,
                 lastMessageUtc = _service.LastMessageUtc?.ToString("o"),
                 channels = _service.GetChannels(),
-                log = _service.GetRecentLog(120)
+                log = _service.GetRecentLog(120),
+
+                // ---- 치지직(Chzzk) ----
+                chzzkEnabled = _config.ChzzkEnabled,
+                chzzkChannelId = _config.ChzzkChannelId,
+                chzzkConnected = _chzzk?.Connected ?? false,
+                chzzkChannelName = _chzzk?.ChannelName,
+                chzzkLiveTitle = _chzzk?.LiveTitle,
+                chzzkStatus = _chzzk?.StatusReason,
+                chzzkLastMessageUtc = _chzzk?.LastMessageUtc?.ToString("o"),
+                chzzkLog = _chzzk?.GetRecentLog(80)
             };
         }
 
@@ -206,6 +230,17 @@ namespace IzudisbotBSP
             if (j["botApiBase"] != null) _config.BotApiBase = (j["botApiBase"].ToString() ?? "").Trim();
 
             _service.SaveAndReconnect();
+        }
+
+        /// <summary>치지직 설정(채널 ID / 사용 여부) 변경 — 저장 + 재시작.</summary>
+        private void HandleChzzkConfig(string body)
+        {
+            var j = string.IsNullOrEmpty(body) ? new JObject() : JObject.Parse(body);
+
+            if (j["chzzkEnabled"] != null) _config.ChzzkEnabled = j["chzzkEnabled"].ToObject<bool>();
+            if (j["chzzkChannelId"] != null) _config.ChzzkChannelId = (j["chzzkChannelId"].ToString() ?? "").Trim();
+
+            _chzzk?.Reconfigure();
         }
 
         private void HandlePairReceive(string body)

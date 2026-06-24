@@ -128,6 +128,34 @@ namespace IzudisbotBSP
       <table class='table table-sm align-middle mb-0'><tbody id='channels'></tbody></table>
      </div>
     </div>
+
+    <div class='card mt-4 border-success-subtle'>
+     <div class='card-header d-flex justify-content-between align-items-center'>
+      <span>🟢 <span data-i18n='card.chzzk'></span></span>
+      <span id='chzzk-conn' class='badge text-bg-secondary'>…</span>
+     </div>
+     <div class='card-body'>
+      <div class='form-check form-switch mb-3'>
+       <input class='form-check-input' type='checkbox' id='chzzk-enable'>
+       <label class='form-check-label' for='chzzk-enable' data-i18n='chzzk.enable'></label>
+      </div>
+      <div class='mb-2'>
+       <label class='form-label' data-i18n='chzzk.channelId'></label>
+       <input id='chzzk-channel' type='text' class='form-control' placeholder='e.g. 0ac4xxxxxxxxxxxxxxxxxxxxxxxxxxxx'>
+       <div class='form-text' data-i18n='chzzk.channelHint'></div>
+      </div>
+      <button class='btn btn-success btn-sm' onclick='saveChzzk()' data-i18n='chzzk.save'></button>
+      <span id='chzzk-saved' class='ms-2 text-success small'></span>
+      <div class='mt-3 small' id='chzzk-status'>…</div>
+      <div class='mt-2'>
+       <div class='d-flex justify-content-between align-items-center mb-1'>
+        <span class='text-secondary small' data-i18n='chzzk.preview'></span>
+        <button class='btn btn-sm btn-outline-secondary py-0' onclick='clearChzzk()' data-i18n='btn.clear'></button>
+       </div>
+       <div class='log' id='chzzk-log' style='max-height:200px'></div>
+      </div>
+     </div>
+    </div>
    </div>
 
   </div>
@@ -162,6 +190,11 @@ const S={
   'ch.toggle':'forward on/off','ch.none':'No channels received yet','log.sub':'(newest first · filtered are dimmed)',
   'btn.clear':'Clear','log.filtered':'(filtered)','log.none':'No log',
   'update.text':'A new mod version is available:','update.btn':'Open release',
+  'card.chzzk':'Chzzk chat','chzzk.enable':'Forward Chzzk chat into the game',
+  'chzzk.channelId':'Channel ID','chzzk.channelHint':'The ID in your channel URL: chzzk.naver.com/<this part>',
+  'chzzk.save':'Save & Reconnect','chzzk.preview':'Chat preview (newest first)',
+  'chzzk.connected':'Connected','chzzk.disconnected':'Disconnected','chzzk.disabled':'Off',
+  'chzzk.channelLabel':'Channel','chzzk.liveLabel':'Live','chzzk.statusLabel':'Status','chzzk.lastLabel':'Last message',
   'pair.bannerHint':'No token yet?','pair.startBtn':'Get from bot',
   'pair.codeLabel':'Enter this 6-digit code on the bot dashboard, then approve',
   'pair.openBtn':'Open dashboard',
@@ -194,6 +227,11 @@ const S={
   'ch.toggle':'게임 전달 on/off','ch.none':'아직 수신된 채널이 없습니다','log.sub':'(신규순 · 필터된 메시지는 흐리게)',
   'btn.clear':'지우기','log.filtered':'(필터됨)','log.none':'로그 없음',
   'update.text':'새 모드 버전이 있습니다:','update.btn':'릴리스 열기',
+  'card.chzzk':'치지직 채팅','chzzk.enable':'치지직 채팅을 게임으로 전달',
+  'chzzk.channelId':'채널 ID','chzzk.channelHint':'채널 URL 의 ID: chzzk.naver.com/<이 부분>',
+  'chzzk.save':'저장 & 재접속','chzzk.preview':'채팅 미리보기 (신규순)',
+  'chzzk.connected':'연결됨','chzzk.disconnected':'끊김','chzzk.disabled':'꺼짐',
+  'chzzk.channelLabel':'채널','chzzk.liveLabel':'방송','chzzk.statusLabel':'상태','chzzk.lastLabel':'마지막 수신',
   'pair.bannerHint':'아직 토큰이 없으신가요?','pair.startBtn':'봇에서 가져오기',
   'pair.codeLabel':'봇 대시보드에서 이 6자리 코드를 입력하고 승인하세요',
   'pair.openBtn':'대시보드 열기',
@@ -226,6 +264,11 @@ const S={
   'ch.toggle':'転送 on/off','ch.none':'受信したチャンネルがありません','log.sub':'(新しい順・フィルタ済みは薄く)',
   'btn.clear':'クリア','log.filtered':'(フィルタ済み)','log.none':'ログなし',
   'update.text':'新しい MOD バージョンがあります:','update.btn':'リリースを開く',
+  'card.chzzk':'Chzzk チャット','chzzk.enable':'Chzzk チャットをゲームへ転送',
+  'chzzk.channelId':'チャンネルID','chzzk.channelHint':'チャンネルURLのID: chzzk.naver.com/<この部分>',
+  'chzzk.save':'保存して再接続','chzzk.preview':'チャットプレビュー (新しい順)',
+  'chzzk.connected':'接続済み','chzzk.disconnected':'切断','chzzk.disabled':'オフ',
+  'chzzk.channelLabel':'チャンネル','chzzk.liveLabel':'配信','chzzk.statusLabel':'ステータス','chzzk.lastLabel':'最終受信',
   'pair.bannerHint':'まだトークンがありませんか?','pair.startBtn':'ボットから取得',
   'pair.codeLabel':'ボットダッシュボードでこの 6 桁コードを入力して承認してください',
   'pair.openBtn':'ダッシュボードを開く',
@@ -287,6 +330,8 @@ function render(s){
   $('ivl').value=s.reconnectIntervalSec||10;
   $('cmdonly').checked=!!s.forwardOnlyCommands;
   $('launch').checked=!!s.openWebOnLaunch;
+  $('chzzk-enable').checked=!!s.chzzkEnabled;
+  $('chzzk-channel').value=s.chzzkChannelId||'';
   inited=true;
  } else if(s.token!==lastServerToken && document.activeElement!==$('token')){
   $('token').value=s.token||'';
@@ -337,6 +382,36 @@ function render(s){
   `<b>${esc(m.user)}</b>: ${esc(m.content)}`+
   `${m.forwarded?'':` <span class='text-warning'>${t('log.filtered')}</span>`}</div>`
  ).join('') : `<div class='text-secondary'>${t('log.none')}</div>`;
+
+ renderChzzk(s);
+}
+
+function renderChzzk(s){
+ const badge=$('chzzk-conn');
+ if(!s.chzzkEnabled){ badge.className='badge text-bg-secondary'; badge.textContent=t('chzzk.disabled'); }
+ else { badge.className='badge '+(s.chzzkConnected?'text-bg-success':'text-bg-danger'); badge.textContent=s.chzzkConnected?t('chzzk.connected'):t('chzzk.disconnected'); }
+
+ $('chzzk-status').innerHTML=
+  `<div>${t('chzzk.channelLabel')}: <b>${esc(s.chzzkChannelName||'-')}</b></div>`+
+  `<div>${t('chzzk.liveLabel')}: ${esc(s.chzzkLiveTitle||'-')}</div>`+
+  `<div>${t('chzzk.statusLabel')}: <span class='text-secondary'>${esc(s.chzzkStatus||'-')}</span></div>`+
+  `<div>${t('chzzk.lastLabel')}: ${s.chzzkLastMessageUtc?ago(s.chzzkLastMessageUtc):'-'}</div>`;
+
+ const cl=s.chzzkLog||[];
+ $('chzzk-log').innerHTML= cl.length? cl.map(m=>
+  `<div class='row-f'><span class='text-secondary'>${m.time}</span> <b>${esc(m.user)}</b>: ${esc(m.content)}</div>`
+ ).join('') : `<div class='text-secondary'>${t('log.none')}</div>`;
+}
+
+async function saveChzzk(){
+ const body={chzzkEnabled:$('chzzk-enable').checked,chzzkChannelId:$('chzzk-channel').value.trim()};
+ await fetch('/api/chzzk/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+ const sv=$('chzzk-saved');sv.textContent=t('msg.saved');setTimeout(()=>sv.textContent='',2000);
+ poll();
+}
+async function clearChzzk(){
+ await fetch('/api/chzzk/clearlog',{method:'POST'});
+ poll();
 }
 
 async function save(){
