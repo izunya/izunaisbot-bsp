@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Security.Authentication;
 using System.Threading;
 using CP_SDK.Animation;
 using CP_SDK.Chat;
@@ -50,7 +51,11 @@ namespace IzudisbotBSP
         private Thread _worker;
         private volatile bool _shouldRun;
         private volatile bool _connected;
-        private readonly ManualResetEvent _closed = new ManualResetEvent(false);
+        private volatile int _generation;
+        // _stop: 워커 정지/재설정 신호 (백오프 Sleep 을 깨움). _wsClosed: WS 가 닫혔다는 신호.
+        // 둘을 분리해야 WS 가 닫혀도 폴링 백오프가 무력화되지 않는다 (재접속 폭주 방지).
+        private readonly ManualResetEvent _stop = new ManualResetEvent(false);
+        private readonly ManualResetEvent _wsClosed = new ManualResetEvent(false);
 
         // ---- 웹 UI 용 상태/로그 ----
         private readonly object _logLock = new object();
@@ -60,6 +65,8 @@ namespace IzudisbotBSP
         private string _channelName = "";
         private string _liveTitle = "";
         private const int MaxLog = 200;
+        // 치지직 채팅 서버 idle timeout(~60s) 회피용 클라 heartbeat 간격.
+        private const int HeartbeatMs = 20000;
 
         public ChzzkChatService(Config config, IPALogger log)
         {
@@ -182,24 +189,32 @@ namespace IzudisbotBSP
                 return;
             }
             if (_worker != null && _worker.IsAlive) return;
-            _worker = new Thread(WorkerLoop) { IsBackground = true, Name = "izudisbot-chzzk" };
+            _stop.Reset();
+            int gen = ++_generation;
+            _worker = new Thread(() => WorkerLoop(gen)) { IsBackground = true, Name = "izudisbot-chzzk" };
             _worker.Start();
         }
 
         private void StopWorker()
         {
+            // _generation 을 올려 현재 워커를 "구세대"로 만든다 → 워커가 스스로 빠져나온다.
+            // (Reconfigure 시엔 _shouldRun/ChzzkEnabled 가 계속 true 라 이 토큰 없이는 안 죽음)
+            _generation++;
+            _stop.Set();
             CloseSocket();
             var w = _worker;
             _worker = null;
-            // 워커는 _shouldRun=false 와 _closed 신호로 스스로 빠져나온다.
-            _closed.Set();
-            try { if (w != null && w.IsAlive) w.Join(2000); } catch { }
+            try { if (w != null && w.IsAlive && w != Thread.CurrentThread) w.Join(3000); } catch { }
         }
 
-        private void WorkerLoop()
+        /// <summary>이 세대(gen)의 워커가 계속 돌아야 하는지.</summary>
+        private bool Active(int gen) => _shouldRun && _config.ChzzkEnabled && gen == _generation;
+
+        private void WorkerLoop(int gen)
         {
             int notLiveBackoff = 0;
-            while (_shouldRun && _config.ChzzkEnabled)
+            int wsFailBackoff = 0;
+            while (Active(gen))
             {
                 var channelId = (_config.ChzzkChannelId ?? "").Trim();
                 if (string.IsNullOrEmpty(channelId)) { SetStatus("채널 ID 미설정"); break; }
@@ -210,9 +225,9 @@ namespace IzudisbotBSP
                     if (channel == null)
                     {
                         SetStatus("채널을 찾을 수 없음 (" + channelId + ")");
-                        m_OnSystemMessageCallbacks?.InvokeAll((IChatService)this,
+                        m_OnSystemMessageCallbacks?.InvokeAll(this,
                             "<color=orange><b>Chzzk: 채널을 찾을 수 없습니다 (" + channelId + "). 채널 ID 를 확인하세요.</b></color>");
-                        if (!Sleep(15000)) break;
+                        if (!Sleep(gen, 15000)) break;
                         continue;
                     }
                     SetChannelName(channel.Name);
@@ -222,7 +237,7 @@ namespace IzudisbotBSP
                     {
                         notLiveBackoff = Math.Min(notLiveBackoff + 2, 20);
                         SetStatus("방송 대기 중 — " + channel.Name);
-                        if (!Sleep((10 + notLiveBackoff) * 1000)) break;
+                        if (!Sleep(gen, (10 + notLiveBackoff) * 1000)) break;
                         continue;
                     }
                     notLiveBackoff = 0;
@@ -231,57 +246,75 @@ namespace IzudisbotBSP
                     if (string.IsNullOrEmpty(accessToken))
                     {
                         SetStatus("채팅 토큰 발급 실패");
-                        if (!Sleep(8000)) break;
+                        if (!Sleep(gen, 8000)) break;
                         continue;
                     }
 
                     SetLiveTitle(live.LiveTitle);
-                    ConnectAndListen(live.ChatChannelId, accessToken, channel.Name, live.LiveTitle);
-                    // ConnectAndListen 은 연결이 끊길 때까지 블록. 끊기면 다시 폴링 루프로.
-                    if (!Sleep(3000)) break;
+                    bool opened = ConnectAndListen(live.ChatChannelId, accessToken, channel.Name, live.LiveTitle);
+                    // 연결이 한 번이라도 열렸으면 정상 재폴링(3s). 한 번도 못 열렸으면(TLS/네트워크 등)
+                    // 지수적 백오프로 폭주를 막는다.
+                    if (opened)
+                    {
+                        wsFailBackoff = 0;
+                        if (!Sleep(gen, 3000)) break;
+                    }
+                    else
+                    {
+                        wsFailBackoff = Math.Min(wsFailBackoff + 1, 12);
+                        SetStatus("채팅 서버 연결 실패 — 재시도 대기");
+                        if (!Sleep(gen, (5 + wsFailBackoff * 5) * 1000)) break;
+                    }
                 }
                 catch (Exception err)
                 {
                     _log?.Warn("Chzzk worker 오류: " + err.Message);
                     SetStatus("오류: " + err.Message);
-                    if (!Sleep(8000)) break;
+                    if (!Sleep(gen, 8000)) break;
                 }
             }
             _connected = false;
-            SetStatus(_config.ChzzkEnabled ? "정지됨" : "disabled");
-            _log?.Info("Chzzk worker 종료");
+            if (gen == _generation) SetStatus(_config.ChzzkEnabled ? "정지됨" : "disabled");
+            _log?.Info("Chzzk worker 종료 (gen " + gen + ")");
         }
 
-        /// <summary>중단 신호(_shouldRun=false / _closed)에 즉시 반응하는 대기. 계속 진행하면 true.</summary>
-        private bool Sleep(int ms)
+        /// <summary>정지 신호(_stop)에 즉시 반응하는 대기. 계속 진행해야 하면 true.</summary>
+        private bool Sleep(int gen, int ms)
         {
-            if (!_shouldRun) return false;
-            // _closed 가 set 되면 즉시 깨어난다 (Stop/Reconfigure 시).
-            bool signaled = _closed.WaitOne(ms);
-            if (signaled) _closed.Reset();
-            return _shouldRun && _config.ChzzkEnabled;
+            if (!Active(gen)) return false;
+            // _stop 이 set 되면 즉시 깨어난다 (Stop/Reconfigure 시). WS close 와는 분리되어 있어
+            // 채팅이 끊겨도 이 백오프가 단축되지 않는다.
+            _stop.WaitOne(ms);
+            return Active(gen);
         }
 
         // ================================================================
         // WebSocket (WebSocketSharp)
         // ================================================================
 
-        private void ConnectAndListen(string chatChannelId, string accessToken, string channelName, string liveTitle)
+        /// <summary>WS 에 붙어 닫힐 때까지 블록. 한 번이라도 OnOpen 됐으면 true 반환.</summary>
+        private bool ConnectAndListen(string chatChannelId, string accessToken, string channelName, string liveTitle)
         {
             CloseSocket();
-            _closed.Reset();
+            _wsClosed.Reset();
+            bool opened = false;
 
             var id = Math.Abs(Guid.NewGuid().GetHashCode()) % 5 + 1;   // kr-ss1..5
             var uri = "wss://kr-ss" + id + ".chat.naver.com/chat";
             _ws = new WebSocket(uri);
+            // websocket-sharp 는 기본이 옛 SSL → 네이버 채팅 서버가 핸드셰이크를 거부(close 1015).
+            // TLS1.2 를 명시하고, 비트세이버 Mono 의 불완전한 루트 CA 스토어 때문에 인증서 검증도 통과시킨다.
+            _ws.SslConfiguration.EnabledSslProtocols = SslProtocols.Tls12;
+            _ws.SslConfiguration.ServerCertificateValidationCallback = (s, c, ch, e) => true;
             _ws.OnOpen += (s, e) =>
             {
+                opened = true;
                 _connected = true;
                 SetStatus("연결됨 — " + (string.IsNullOrEmpty(liveTitle) ? channelName : liveTitle));
                 _log?.Info("Chzzk WS 연결: " + uri);
                 SendConnect(chatChannelId, accessToken);
                 EnsureChannel(chatChannelId, channelName);
-                m_OnSystemMessageCallbacks?.InvokeAll((IChatService)this,
+                m_OnSystemMessageCallbacks?.InvokeAll(this,
                     "<color=#08FFA6><b>Chzzk: \"" + (liveTitle ?? channelName) + "\" 채팅 연결됨</b></color>");
             };
             _ws.OnMessage += (s, e) => { try { HandleWsMessage(e.Data, chatChannelId, channelName); } catch (Exception err) { _log?.Warn("Chzzk 메시지 처리 실패: " + err.Message); } };
@@ -290,18 +323,21 @@ namespace IzudisbotBSP
             {
                 _connected = false;
                 _log?.Info("Chzzk WS 닫힘: code=" + e.Code);
-                _closed.Set();
+                _wsClosed.Set();
             };
 
             try { _ws.Connect(); }
-            catch (Exception err) { _log?.Warn("Chzzk WS 연결 실패: " + err.Message); _closed.Set(); return; }
+            catch (Exception err) { _log?.Warn("Chzzk WS 연결 실패: " + err.Message); CloseSocket(); return opened; }
 
-            // 연결이 끊기거나 중단될 때까지 블록.
-            while (_shouldRun && _config.ChzzkEnabled && _connected)
+            // 닫히거나(또는 정지) 까지 블록하되, HeartbeatMs 마다 PING(cmd 0)을 보낸다.
+            // 치지직 채팅 서버는 클라 heartbeat 가 없으면 ~60초 idle timeout 으로 끊는다(close 1006).
+            var handles = new WaitHandle[] { _wsClosed, _stop };
+            while (WaitHandle.WaitAny(handles, HeartbeatMs) == WaitHandle.WaitTimeout)
             {
-                if (_closed.WaitOne(1000)) break;
+                SafeSend("{\"ver\":\"3\",\"cmd\":0}");
             }
             CloseSocket();
+            return opened;
         }
 
         private void SendConnect(string chatChannelId, string accessToken)
