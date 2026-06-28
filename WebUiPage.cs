@@ -214,7 +214,8 @@ const S={
   'pair.noManageableHint':'You do not manage any Discord server. Create one (or get the Manage Server permission), then click Recheck.',
   'pair.inviteToBtn':'Invite to',
   'pair.inviteGeneralBtn':'Invite (pick during OAuth)',
-  'pair.recheckBtn':'Recheck'
+  'pair.recheckBtn':'Recheck',
+  'btn.test':'Test bridge','test.ok':'✓ Posted to Discord','test.fail':'✗ Failed','test.pending':'sending...','test.detail':'detail'
  },
  ko:{
   'conn.connected':'연결됨','conn.disconnected':'끊김','conn.noresp':'웹 응답 없음',
@@ -251,7 +252,8 @@ const S={
   'pair.noManageableHint':'관리 권한이 있는 Discord 서버가 없습니다. 서버를 만들거나 서버 관리 권한을 받은 뒤 [다시 확인]을 눌러주세요.',
   'pair.inviteToBtn':'초대',
   'pair.inviteGeneralBtn':'봇 초대 (OAuth 화면에서 서버 선택)',
-  'pair.recheckBtn':'다시 확인'
+  'pair.recheckBtn':'다시 확인',
+  'btn.test':'브리지 테스트','test.ok':'✓ 디스코드에 게시됨','test.fail':'✗ 실패','test.pending':'전송 중...','test.detail':'상세'
  },
  ja:{
   'conn.connected':'接続済み','conn.disconnected':'切断','conn.noresp':'応答なし',
@@ -288,7 +290,8 @@ const S={
   'pair.noManageableHint':'管理権限のある Discord サーバーがありません。サーバーを作成するか管理権限を取得してから [再確認] を押してください。',
   'pair.inviteToBtn':'招待',
   'pair.inviteGeneralBtn':'ボットを招待 (OAuth で選択)',
-  'pair.recheckBtn':'再確認'
+  'pair.recheckBtn':'再確認',
+  'btn.test':'ブリッジ テスト','test.ok':'✓ Discord に投稿','test.fail':'✗ 失敗','test.pending':'送信中...','test.detail':'詳細'
  }
 };
 function t(k){return (S[lang]&&S[lang][k])||S.en[k]||k;}
@@ -359,11 +362,25 @@ function render(s){
  c.className='badge '+(s.connected?'text-bg-success':'text-bg-danger');
  c.textContent=s.connected?t('conn.connected'):t('conn.disconnected');
 
+ let testHtml='';
+ const bt=s.bridgeTest||{};
+ if(bt.sentUtc){
+  if(bt.ackUtc){
+   const cls=bt.ok?'text-success':'text-danger';
+   const lbl=bt.ok?t('test.ok'):t('test.fail');
+   const det=bt.detail?` <span class='text-secondary'>(${t('test.detail')}: ${esc(bt.detail)})</span>`:'';
+   testHtml=` <span class='${cls}'>${lbl}</span>${det}`;
+  } else {
+   testHtml=` <span class='text-warning'>${t('test.pending')}</span>`;
+  }
+ }
  $('status').innerHTML=
   `<div class='mb-1'>${t('status.ws')}: <code>${esc(s.url||'-')}</code></div>`+
   `<div class='mb-1'>${t('status.token')}: ${s.tokenSet?`<span class='text-success'>${t('status.tokenSet')}</span>`:`<span class='text-warning'>${t('status.tokenNone')}</span>`}</div>`+
   `<div class='mb-2'>${t('status.last')}: ${s.lastMessageUtc?ago(s.lastMessageUtc):'-'}</div>`+
-  `<button class='btn btn-sm btn-outline-light' onclick='reconnect()'>${t('btn.reconnect')}</button>`;
+  `<button class='btn btn-sm btn-outline-light me-2' onclick='reconnect()'>${t('btn.reconnect')}</button>`+
+  `<button class='btn btn-sm btn-outline-info' onclick='testBridge()' ${s.connected?'':'disabled'}>${t('btn.test')}</button>`+
+  testHtml;
 
  const ch=s.channels||[];
  $('channels').innerHTML= ch.length? ch.map(x=>
@@ -423,6 +440,13 @@ async function save(){
 async function reconnect(){
  await fetch('/api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
  poll();
+}
+async function testBridge(){
+ try { await fetch('/api/test-bridge',{method:'POST'}); } catch(_){}
+ poll();
+ // ack 가 1-3초 안에 오므로 짧게 다시 poll
+ setTimeout(poll, 1500);
+ setTimeout(poll, 3500);
 }
 async function toggle(id,en){
  await fetch('/api/channel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id,enabled:en})});

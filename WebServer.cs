@@ -170,6 +170,12 @@ namespace IzunaisbotBSP
                     WriteJson(res, BuildState());
                     return;
                 }
+                if (method == "POST" && path == "/api/test-bridge")
+                {
+                    var sent = _service.SendBridgeTest();
+                    WriteJson(res, new { sent });
+                    return;
+                }
 
                 res.StatusCode = 404;
                 WriteText(res, "not found");
@@ -213,7 +219,17 @@ namespace IzunaisbotBSP
                 chzzkLiveTitle = _chzzk?.LiveTitle,
                 chzzkStatus = _chzzk?.StatusReason,
                 chzzkLastMessageUtc = _chzzk?.LastMessageUtc?.ToString("o"),
-                chzzkLog = _chzzk?.GetRecentLog(80)
+                chzzkLog = _chzzk?.GetRecentLog(80),
+
+                // ---- Bridge test ----
+                bridgeTest = new
+                {
+                    sentUtc = _service.LastTestSentUtc?.ToString("o"),
+                    ackUtc = _service.LastTestAckUtc?.ToString("o"),
+                    ok = _service.LastTestOk,
+                    detail = _service.LastTestDetail,
+                    channelId = _service.LastTestChannelId,
+                }
             };
         }
 

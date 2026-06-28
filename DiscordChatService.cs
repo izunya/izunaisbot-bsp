@@ -210,6 +210,48 @@ namespace IzunaisbotBSP
             get { lock (_logLock) { return _lastMessageUtc; } }
         }
 
+        // ---- Bridge test (게임 → 봇 → 등록 채널에 ping 임베드) ----
+        private readonly object _testLock = new object();
+        private DateTime? _lastTestSentUtc;
+        private DateTime? _lastTestAckUtc;
+        private bool? _lastTestOk;
+        private string _lastTestDetail;
+        private string _lastTestChannelId;
+
+        public DateTime? LastTestSentUtc { get { lock (_testLock) { return _lastTestSentUtc; } } }
+        public DateTime? LastTestAckUtc { get { lock (_testLock) { return _lastTestAckUtc; } } }
+        public bool? LastTestOk { get { lock (_testLock) { return _lastTestOk; } } }
+        public string LastTestDetail { get { lock (_testLock) { return _lastTestDetail; } } }
+        public string LastTestChannelId { get { lock (_testLock) { return _lastTestChannelId; } } }
+
+        /// <summary>
+        /// 봇으로 bridge_test 메시지 전송 — 봇이 등록 채널 중 첫번째에 ping 임베드 게시.
+        /// 결과는 bridge_test_ack 로 비동기 도착 → LastTestOk/Detail 로 폴링.
+        /// </summary>
+        public bool SendBridgeTest()
+        {
+            if (_ws == null || !_connected) return false;
+            var obj = new JObject { ["type"] = "bridge_test" };
+            try
+            {
+                _ws.Send(obj.ToString(Formatting.None));
+                lock (_testLock)
+                {
+                    _lastTestSentUtc = DateTime.UtcNow;
+                    _lastTestAckUtc = null;
+                    _lastTestOk = null;
+                    _lastTestDetail = null;
+                    _lastTestChannelId = null;
+                }
+                return true;
+            }
+            catch (Exception err)
+            {
+                _log?.Warn("bridge_test send 실패: " + err.Message);
+                return false;
+            }
+        }
+
         /// <summary>채널 목록 + 누적 수신 수 + 음소거 여부 (수신 많은 순).</summary>
         public List<ChannelInfo> GetChannels()
         {
@@ -541,6 +583,20 @@ namespace IzunaisbotBSP
                 }
 
                 if (type == "pong") return;
+                if (type == "bridge_test_ack")
+                {
+                    var ok = obj["ok"]?.ToObject<bool?>() ?? false;
+                    var detail = obj["detail"]?.ToString();
+                    var channelId = obj["channelId"]?.ToString();
+                    lock (_testLock)
+                    {
+                        _lastTestAckUtc = DateTime.UtcNow;
+                        _lastTestOk = ok;
+                        _lastTestDetail = detail;
+                        _lastTestChannelId = channelId;
+                    }
+                    return;
+                }
                 if (type == "voice_count")
                 {
                     var count = obj["count"]?.ToObject<int?>() ?? 0;
