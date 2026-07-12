@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using System.IO;
 using Newtonsoft.Json;
 
-namespace IzudisbotBSP
+namespace IzunaisbotBSP
 {
     /// <summary>
-    /// 브리지 설정 — UserData/izudisbot-bsp.json 에 보관.
+    /// 브리지 설정 — UserData/izunaisbot-bsp.json 에 보관.
     /// 첫 실행 시 기본값으로 자동 생성. 게임 종료 후 메모장으로 직접 수정.
     /// </summary>
     public class Config
@@ -35,7 +35,7 @@ namespace IzudisbotBSP
         public bool OpenWebOnLaunch { get; set; } = true;
 
         /// <summary>봇 대시보드 / 페어링 API 의 베이스 URL. 모드 웹 UI 가 직접 호출함.</summary>
-        public string BotApiBase { get; set; } = "https://izudisbot.izunya.dev";
+        public string BotApiBase { get; set; } = "https://izunaisbot.izunya.dev";
 
         // ---- 치지직(Chzzk) 연동 ----
 
@@ -56,7 +56,7 @@ namespace IzudisbotBSP
         public static Config Current { get; private set; } = new Config();
 
         public static string FilePath => Path.Combine(
-            Environment.CurrentDirectory, "UserData", "izudisbot-bsp.json"
+            Environment.CurrentDirectory, "UserData", "izunaisbot-bsp.json"
         );
 
         public static void Load()

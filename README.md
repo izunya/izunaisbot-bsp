@@ -1,18 +1,18 @@
-# izudisbot-bsp — Discord → BeatSaberPlus Chat Bridge
+# izunaisbot-bsp — Discord → BeatSaberPlus Chat Bridge
 
 > [English](#english) · [한국어](#한국어) · [日本語](#日本語)
 
 A BSIPA plugin that forwards **Discord channel messages into the in-game BeatSaberPlus chat overlay** (and `!bsr` song requests). When someone types in your Discord channel, it appears live on the Beat Saber BSP Chat overlay; `!bsr <code>` is queued into ChatRequest automatically.
 
 ```
-[Discord channel] ──(izudisbot bot)──▶ [WebSocket] ──▶ izudisbot-bsp ──▶ BeatSaberPlus Chat / ChatRequest
+[Discord channel] ──(izunaisbot bot)──▶ [WebSocket] ──▶ izunaisbot-bsp ──▶ BeatSaberPlus Chat / ChatRequest
 ```
 
-> **⚠️ Requires the izudisbot Discord bot** — this plugin only bridges into the game. You need the **izudisbot** Discord bot, set up at **<https://izudisbot.izunya.dev>**.
+> **⚠️ Requires the izunaisbot Discord bot** — this plugin only bridges into the game. You need the **izunaisbot** Discord bot, set up at **<https://izunaisbot.izunya.dev>**.
 >
-> **⚠️ izudisbot 디스코드 봇이 필요합니다** — 이 플러그인은 게임으로 연결만 합니다. **izudisbot** 디스코드 봇이 있어야 하며 **<https://izudisbot.izunya.dev>** 에서 설정합니다.
+> **⚠️ izunaisbot 디스코드 봇이 필요합니다** — 이 플러그인은 게임으로 연결만 합니다. **izunaisbot** 디스코드 봇이 있어야 하며 **<https://izunaisbot.izunya.dev>** 에서 설정합니다.
 >
-> **⚠️ izudisbot Discord ボットが必要です** — このプラグインはゲームへの橋渡しのみ行います。**izudisbot** ボットが必要で、**<https://izudisbot.izunya.dev>** で設定します。
+> **⚠️ izunaisbot Discord ボットが必要です** — このプラグインはゲームへの橋渡しのみ行います。**izunaisbot** ボットが必要で、**<https://izunaisbot.izunya.dev>** で設定します。
 
 ---
 
@@ -37,12 +37,12 @@ A BSIPA plugin that forwards **Discord channel messages into the in-game BeatSab
 | **Beat Saber 1.44.0 / 1.40.8 / 1.29.1** | Per-version zips are distributed |
 | **BSIPA 4.3.0+** | Mod loader |
 | **BeatSaberPlus** | `Chat` (required); `ChatRequest` for song requests |
-| **izudisbot Discord bot** | **Required** — the Discord bot this bridge talks to. Set up at <https://izudisbot.izunya.dev> |
-| **izudisbot bot token** | Issue a `bsp_xxx` token from the [dashboard](https://izudisbot.izunya.dev/dashboard/me/bsp-bridge) |
+| **izunaisbot Discord bot** | **Required** — the Discord bot this bridge talks to. Set up at <https://izunaisbot.izunya.dev> |
+| **izunaisbot bot token** | Issue a `bsp_xxx` token from the [dashboard](https://izunaisbot.izunya.dev/dashboard/me/bsp-bridge) |
 
 ### Install
-1. Download the latest `izudisbot-bsp-x.y.z.zip` from [**Releases**](../../releases).
-2. Extract it into your **Beat Saber install folder root** → `izudisbot-bsp.dll` lands in `Plugins\`.
+1. Download the latest `izunaisbot-bsp-x.y.z.zip` from [**Releases**](../../releases).
+2. Extract it into your **Beat Saber install folder root** → `izunaisbot-bsp.dll` lands in `Plugins\`.
 3. Launch the game once, then quit (creates the config file).
 
 ### Configure
@@ -51,9 +51,9 @@ There are three ways; the web UI is recommended.
 **1. Local web UI (recommended)** — open **http://localhost:9001/** in your browser.
 Enter your `Token`, toggle auto-reconnect, manage channels (forward on/off), watch the live message log. The bridge URL is preset (`wss://bsp.izunya.dev/bsp`), so you only need the token. Saving applies instantly (no restart). Top-right button cycles English/Korean/Japanese.
 
-**2. In-game** — in the main menu's left **Mods** tab, click the **izudisbot** button to open the web UI.
+**2. In-game** — in the main menu's left **Mods** tab, click the **izunaisbot** button to open the web UI.
 
-**3. JSON file** — edit `UserData\izudisbot-bsp.json` while the game is closed:
+**3. JSON file** — edit `UserData\izunaisbot-bsp.json` while the game is closed:
 ```json
 {
     "Url": "wss://bsp.izunya.dev/bsp",
@@ -75,15 +75,15 @@ Enter your `Token`, toggle auto-reconnect, manage channels (forward on/off), wat
 - **DisabledChannels** — channel IDs muted from forwarding
 
 ### Usage
-1. Get a token on the [dashboard](https://izudisbot.izunya.dev/dashboard/me/bsp-bridge) and pick the Discord channel(s) to forward.
+1. Get a token on the [dashboard](https://izunaisbot.izunya.dev/dashboard/me/bsp-bridge) and pick the Discord channel(s) to forward.
 2. Enter your `Token` (web UI or JSON). The URL is already preset.
 3. Messages in the Discord channel show up on the BSP Chat overlay.
 4. `!bsr <map code>` is added to the song-request queue.
 
 Connected correctly when the game log (`Logs\_latest.log`) shows:
 ```
-[izudisbot-bsp] Connected: wss://bsp.izunya.dev/bsp
-[izudisbot-bsp] Local web UI: http://localhost:9001/
+[izunaisbot-bsp] Connected: wss://bsp.izunya.dev/bsp
+[izunaisbot-bsp] Local web UI: http://localhost:9001/
 ```
 
 ### Troubleshooting
@@ -129,12 +129,12 @@ Pushing a `v*` tag (e.g. `v0.1.1`) triggers GitHub Actions to build, zip, and up
 | **Beat Saber 1.44.0 / 1.40.8 / 1.29.1** | 버전별 zip 배포 |
 | **BSIPA 4.3.0+** | 모드 로더 |
 | **BeatSaberPlus** | `Chat`(필수), 곡 신청은 `ChatRequest` |
-| **izudisbot 디스코드 봇** | **필수** — 이 브리지가 연결하는 디스코드 봇. <https://izudisbot.izunya.dev> 에서 설정 |
-| **izudisbot 봇 토큰** | [대시보드](https://izudisbot.izunya.dev/dashboard/me/bsp-bridge)에서 `bsp_xxx` 발급 |
+| **izunaisbot 디스코드 봇** | **필수** — 이 브리지가 연결하는 디스코드 봇. <https://izunaisbot.izunya.dev> 에서 설정 |
+| **izunaisbot 봇 토큰** | [대시보드](https://izunaisbot.izunya.dev/dashboard/me/bsp-bridge)에서 `bsp_xxx` 발급 |
 
 ### 설치
-1. [**Releases**](../../releases)에서 최신 `izudisbot-bsp-x.y.z.zip` 다운로드.
-2. **Beat Saber 설치 폴더 루트**에 압축 해제 → `izudisbot-bsp.dll` 이 `Plugins\` 로 들어감.
+1. [**Releases**](../../releases)에서 최신 `izunaisbot-bsp-x.y.z.zip` 다운로드.
+2. **Beat Saber 설치 폴더 루트**에 압축 해제 → `izunaisbot-bsp.dll` 이 `Plugins\` 로 들어감.
 3. 게임을 한 번 실행했다 종료 (설정 파일 생성).
 
 ### 설정
@@ -143,9 +143,9 @@ Pushing a `v*` tag (e.g. `v0.1.1`) triggers GitHub Actions to build, zip, and up
 **1. 로컬 웹 UI (권장)** — 브라우저에서 **http://localhost:9001/** 접속.
 `Token` 입력, 자동 재접속 토글, 채널 전달 on/off, 실시간 메시지 로그 확인. 브리지 URL은 `wss://bsp.izunya.dev/bsp` 로 고정이라 토큰만 넣으면 됩니다. 저장 시 재시작 없이 즉시 적용. 우측 상단 버튼으로 영어/한국어/일본어 전환.
 
-**2. 인게임** — 메인 메뉴 좌측 **Mods 탭**의 **izudisbot** 버튼 클릭 → 설정 패널의 **Web Open** 버튼으로 웹 UI 열림.
+**2. 인게임** — 메인 메뉴 좌측 **Mods 탭**의 **izunaisbot** 버튼 클릭 → 설정 패널의 **Web Open** 버튼으로 웹 UI 열림.
 
-**3. JSON 파일** — 게임 종료 상태에서 `UserData\izudisbot-bsp.json` 편집:
+**3. JSON 파일** — 게임 종료 상태에서 `UserData\izunaisbot-bsp.json` 편집:
 ```json
 {
     "Url": "wss://bsp.izunya.dev/bsp",
@@ -167,15 +167,15 @@ Pushing a `v*` tag (e.g. `v0.1.1`) triggers GitHub Actions to build, zip, and up
 - **DisabledChannels** — 전달 음소거할 채널 ID 목록
 
 ### 사용 방법
-1. [대시보드](https://izudisbot.izunya.dev/dashboard/me/bsp-bridge)에서 토큰 발급 + 전달할 디스코드 채널 선택.
+1. [대시보드](https://izunaisbot.izunya.dev/dashboard/me/bsp-bridge)에서 토큰 발급 + 전달할 디스코드 채널 선택.
 2. `Token` 입력 (웹 UI 또는 JSON). URL은 이미 고정돼 있습니다.
 3. 디스코드 채널 메시지가 BSP Chat 오버레이에 표시됩니다.
 4. `!bsr <맵코드>` 는 곡 신청 큐에 자동 추가됩니다.
 
 게임 로그(`Logs\_latest.log`)에 아래가 보이면 정상:
 ```
-[izudisbot-bsp] Connected: wss://bsp.izunya.dev/bsp
-[izudisbot-bsp] Local web UI: http://localhost:9001/
+[izunaisbot-bsp] Connected: wss://bsp.izunya.dev/bsp
+[izunaisbot-bsp] Local web UI: http://localhost:9001/
 ```
 
 ### 문제 해결
@@ -221,12 +221,12 @@ dotnet build -c Release /p:CopyToPlugins=true
 | **Beat Saber 1.44.0 / 1.40.8 / 1.29.1** | 各バージョン用 zip を配布 |
 | **BSIPA 4.3.0+** | Mod ローダー |
 | **BeatSaberPlus** | `Chat`（必須）、曲リクエストは `ChatRequest` |
-| **izudisbot Discord ボット** | **必須** — このブリッジが通信する Discord ボット。<https://izudisbot.izunya.dev> で設定 |
-| **izudisbot ボットトークン** | [ダッシュボード](https://izudisbot.izunya.dev/dashboard/me/bsp-bridge)で `bsp_xxx` を発行 |
+| **izunaisbot Discord ボット** | **必須** — このブリッジが通信する Discord ボット。<https://izunaisbot.izunya.dev> で設定 |
+| **izunaisbot ボットトークン** | [ダッシュボード](https://izunaisbot.izunya.dev/dashboard/me/bsp-bridge)で `bsp_xxx` を発行 |
 
 ### インストール
-1. [**Releases**](../../releases) から自分のゲームバージョンに合う `izudisbot-bsp-x.y.z-bsX.Y.Z.zip` をダウンロード。
-2. **Beat Saber インストールフォルダのルート**に展開 → `Plugins\izudisbot-bsp.dll` に入ります。
+1. [**Releases**](../../releases) から自分のゲームバージョンに合う `izunaisbot-bsp-x.y.z-bsX.Y.Z.zip` をダウンロード。
+2. **Beat Saber インストールフォルダのルート**に展開 → `Plugins\izunaisbot-bsp.dll` に入ります。
 3. ゲームを一度起動して終了（設定ファイルが生成されます）。
 
 ### 設定
@@ -235,9 +235,9 @@ dotnet build -c Release /p:CopyToPlugins=true
 **1. ローカル Web UI（推奨）** — ブラウザで **http://localhost:9001/** を開く。
 `Token` を入力、自動再接続の切替、チャンネル転送 on/off、リアルタイムのメッセージログ確認。ブリッジ URL は `wss://bsp.izunya.dev/bsp` に固定なのでトークンだけでOK。保存すると再起動なしで即適用。右上のボタンで英語/韓国語/日本語を切替。
 
-**2. ゲーム内** — メインメニュー左の **Mods タブ**の **izudisbot** ボタン → 設定パネルの **Web Open** ボタンで Web UI を開く。
+**2. ゲーム内** — メインメニュー左の **Mods タブ**の **izunaisbot** ボタン → 設定パネルの **Web Open** ボタンで Web UI を開く。
 
-**3. JSON ファイル** — ゲーム終了状態で `UserData\izudisbot-bsp.json` を編集（キーは上の JSON 例と同じ）。
+**3. JSON ファイル** — ゲーム終了状態で `UserData\izunaisbot-bsp.json` を編集（キーは上の JSON 例と同じ）。
 - **Token** — `bsp_xxx` トークン（Cookie ヘッダーで送信）。通常はこれだけ設定。
 - **Url** — ブリッジアドレス、`wss://bsp.izunya.dev/bsp` 固定（上級/任意）
 - **WebUIPort** — ローカル Web UI のポート（変更時はゲーム再起動が必要）
@@ -246,7 +246,7 @@ dotnet build -c Release /p:CopyToPlugins=true
 - **DisabledChannels** — 転送をミュートするチャンネル ID 一覧
 
 ### 使い方
-1. [ダッシュボード](https://izudisbot.izunya.dev/dashboard/me/bsp-bridge)でトークンを発行し、転送する Discord チャンネルを選択。
+1. [ダッシュボード](https://izunaisbot.izunya.dev/dashboard/me/bsp-bridge)でトークンを発行し、転送する Discord チャンネルを選択。
 2. `Token` を入力（Web UI または JSON）。URL は設定済み。
 3. Discord チャンネルのメッセージが BSP Chat オーバーレイに表示されます。
 4. `!bsr <マップコード>` は曲リクエストのキューに自動追加されます。
@@ -263,7 +263,7 @@ dotnet build -c Release /p:CopyToPlugins=true
 | `!bsr` が効かない | **ChatRequest** モジュールも有効にする必要あり |
 
 ### 自分でビルド
-Windows + .NET SDK 8 + .NET Framework 4.7.2 + Beat Saber（BSIPA・BeatSaberPlus・BSML 含む）が必要。`Directory.Build.props` の `BeatSaberDir`（または環境変数）をインストール先に設定。1.29.1 ビルドは `1.29.1\izudisbot-bsp-1.29.1.csproj`、1.44.0 ビルドは `1.44.0\izudisbot-bsp-1.44.0.csproj` を使用。
+Windows + .NET SDK 8 + .NET Framework 4.7.2 + Beat Saber（BSIPA・BeatSaberPlus・BSML 含む）が必要。`Directory.Build.props` の `BeatSaberDir`（または環境変数）をインストール先に設定。1.29.1 ビルドは `1.29.1\izunaisbot-bsp-1.29.1.csproj`、1.44.0 ビルドは `1.44.0\izunaisbot-bsp-1.44.0.csproj` を使用。
 ```cmd
 dotnet build -c Release
 :: ビルド後にゲームの Plugins フォルダへコピー

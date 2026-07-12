@@ -6,7 +6,7 @@ using HMUI;
 using UnityEngine;
 using IPALogger = IPA.Logging.Logger;
 
-namespace IzudisbotBSP
+namespace IzunaisbotBSP
 {
     /// <summary>
     /// 인게임 좌측 모드(Mods) 탭에 버튼 하나 등록 → 클릭하면 로컬 웹 UI 를 브라우저로 연다.
@@ -39,7 +39,7 @@ namespace IzudisbotBSP
             {
                 if (_helperGo == null)
                 {
-                    _helperGo = new GameObject("izudisbot-MenuButtonHelper");
+                    _helperGo = new GameObject("izunaisbot-MenuButtonHelper");
                     UnityEngine.Object.DontDestroyOnLoad(_helperGo);
                     _helperGo.AddComponent<MenuButtonHelper>();
                 }
@@ -58,8 +58,8 @@ namespace IzudisbotBSP
                 if (_button == null)
                 {
                     _button = new MenuButton(
-                        "izudisbot",
-                        "Open the izudisbot Discord bridge settings",
+                        "izunaisbot",
+                        "Open the izunaisbot Discord bridge settings",
                         OpenSettings);
                 }
 #if BSML_LEGACY

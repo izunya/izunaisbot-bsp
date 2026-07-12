@@ -4,12 +4,12 @@ using Newtonsoft.Json.Linq;
 using UnityEngine;
 using IPALogger = IPA.Logging.Logger;
 
-namespace IzudisbotBSP
+namespace IzunaisbotBSP
 {
     /// <summary>
     /// BeatSaberPlus_Chat 모듈의 활성 상태를 감시한다.
     ///
-    /// BSP Chat 이 꺼져 있으면 izudisbot 의 디스코드 브리지는 메시지를 넘길 소비자가 없어
+    /// BSP Chat 이 꺼져 있으면 izunaisbot 의 디스코드 브리지는 메시지를 넘길 소비자가 없어
     /// 의미가 없고, 불필요한 WS 연결/재접속만 돌게 된다. → BSP Chat 이 꺼지면 브리지(+음성
     /// 인디케이터)도 함께 멈추고, 다시 켜지면 자동으로 재개한다. (로컬 웹 UI/설정 메뉴는
     /// 계속 살아있다 — 사용자가 설정을 보거나 페어링할 수 있어야 하므로.)
@@ -50,7 +50,7 @@ namespace IzudisbotBSP
             {
                 if (_go == null)
                 {
-                    _go = new GameObject("izudisbot-BspChatGate");
+                    _go = new GameObject("izunaisbot-BspChatGate");
                     UnityEngine.Object.DontDestroyOnLoad(_go);
                     _go.AddComponent<Ticker>();
                 }
@@ -67,7 +67,7 @@ namespace IzudisbotBSP
                 }
                 else
                 {
-                    _log?.Info("BeatSaberPlus_Chat 비활성 → izudisbot 브리지 대기 상태로 시작");
+                    _log?.Info("BeatSaberPlus_Chat 비활성 → izunaisbot 브리지 대기 상태로 시작");
                     _onDisabled?.Invoke();
                 }
             }
@@ -85,12 +85,12 @@ namespace IzudisbotBSP
             {
                 if (now)
                 {
-                    _log?.Info("BeatSaberPlus_Chat 활성화 감지 → izudisbot 브리지 시작");
+                    _log?.Info("BeatSaberPlus_Chat 활성화 감지 → izunaisbot 브리지 시작");
                     _onEnabled?.Invoke();
                 }
                 else
                 {
-                    _log?.Info("BeatSaberPlus_Chat 비활성화 감지 → izudisbot 브리지 정지");
+                    _log?.Info("BeatSaberPlus_Chat 비활성화 감지 → izunaisbot 브리지 정지");
                     _onDisabled?.Invoke();
                 }
             }

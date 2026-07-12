@@ -8,7 +8,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Serialization;
 
-namespace IzudisbotBSP
+namespace IzunaisbotBSP
 {
     /// <summary>
     /// 모드 자체 로컬 웹 설정 UI.
@@ -79,7 +79,7 @@ namespace IzudisbotBSP
                 _listener.Prefixes.Add("http://localhost:" + Port + "/");
                 _listener.Start();
                 _running = true;
-                _thread = new Thread(Loop) { IsBackground = true, Name = "izudisbot-webui" };
+                _thread = new Thread(Loop) { IsBackground = true, Name = "izunaisbot-webui" };
                 _thread.Start();
                 _log?.Info("Local web UI: http://localhost:" + Port + "/");
             }

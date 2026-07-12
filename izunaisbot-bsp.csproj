@@ -3,12 +3,12 @@
     <PropertyGroup>
         <TargetFramework>net472</TargetFramework>
         <LangVersion>latest</LangVersion>
-        <AssemblyName>izudisbot-bsp</AssemblyName>
-        <RootNamespace>IzudisbotBSP</RootNamespace>
+        <AssemblyName>izunaisbot-bsp</AssemblyName>
+        <RootNamespace>IzunaisbotBSP</RootNamespace>
         <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
         <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
         <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
-        <Version>0.6.0</Version>
+        <Version>0.6.1</Version>
     </PropertyGroup>
 
     <!-- BSP / BSIPA / Unity references -->

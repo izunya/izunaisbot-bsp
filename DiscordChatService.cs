@@ -13,7 +13,7 @@ using Newtonsoft.Json.Linq;
 using UnityEngine;
 using WebSocketSharp;
 
-namespace IzudisbotBSP
+namespace IzunaisbotBSP
 {
     /// <summary>
     /// Discord → BeatSaberPlus 채팅 브리지.
@@ -73,7 +73,7 @@ namespace IzudisbotBSP
 
         // 게임 안 BSP_Chat 오버레이에 모듈 응답(!bsr/!queue/!oops 등의 결과)을 띄울 때 쓰는
         // 합성 발신자. ChatRequest/wipbot 응답을 플레이어가 게임 화면에서 직접 보도록 대리 표시한다.
-        private static readonly DiscordChatUser BotUser = new DiscordChatUser("izudisbot-bot", "izudisbot", "#5865F2");
+        private static readonly DiscordChatUser BotUser = new DiscordChatUser("izunaisbot-bot", "izunaisbot", "#5865F2");
         private readonly Dictionary<string, PendingBsr> _pendingBsr = new Dictionary<string, PendingBsr>(StringComparer.OrdinalIgnoreCase);
         private Timer _pendingGcTimer;
 
@@ -281,8 +281,8 @@ namespace IzudisbotBSP
                 "  <input type='number' min='1' class='form-control' name='ReconnectIntervalSec' value='" + _config.ReconnectIntervalSec + "'>" +
                 "</div>" +
                 "<div class='form-check'>" +
-                "  <input type='checkbox' class='form-check-input' id='izudisbot-autoreconnect' name='AutoReconnect' " + (_config.AutoReconnect ? "checked" : "") + ">" +
-                "  <label class='form-check-label' for='izudisbot-autoreconnect'>Auto reconnect</label>" +
+                "  <input type='checkbox' class='form-check-input' id='izunaisbot-autoreconnect' name='AutoReconnect' " + (_config.AutoReconnect ? "checked" : "") + ">" +
+                "  <label class='form-check-label' for='izunaisbot-autoreconnect'>Auto reconnect</label>" +
                 "</div>";
         }
 
@@ -394,7 +394,7 @@ namespace IzudisbotBSP
             {
                 m_OnSystemMessageCallbacks?.InvokeAll(
                     (IChatService)this,
-                    "Discord: URL/Token 미설정. UserData\\izudisbot-bsp.json 편집 후 게임 재시작."
+                    "Discord: URL/Token 미설정. UserData\\izunaisbot-bsp.json 편집 후 게임 재시작."
                 );
                 _log?.Warn("Url 또는 Token 비어있음");
                 return;

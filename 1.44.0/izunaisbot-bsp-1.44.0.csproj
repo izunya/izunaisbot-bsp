@@ -11,12 +11,12 @@
     <PropertyGroup>
         <TargetFramework>net472</TargetFramework>
         <LangVersion>latest</LangVersion>
-        <AssemblyName>izudisbot-bsp</AssemblyName>
-        <RootNamespace>IzudisbotBSP</RootNamespace>
+        <AssemblyName>izunaisbot-bsp</AssemblyName>
+        <RootNamespace>IzunaisbotBSP</RootNamespace>
         <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
         <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
         <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
-        <Version>0.6.0</Version>
+        <Version>0.6.1</Version>
         <!-- 1.44.0 게임 경로 (루트 Directory.Build.props 값을 덮어씀). Steam 설치본. -->
         <BeatSaberDir>C:\Program Files (x86)\Steam\steamapps\common\Beat Saber</BeatSaberDir>
         <!-- 이 폴더엔 .cs 가 없고 전부 ..\ 에서 링크하므로 기본 글롭은 끔 -->
@@ -46,10 +46,10 @@
     <!-- 임베디드 리소스: 공유 BSML + 이 폴더의 1.44.0 manifest -->
     <ItemGroup>
         <EmbeddedResource Include="..\UI\settings.bsml">
-            <LogicalName>IzudisbotBSP.UI.settings.bsml</LogicalName>
+            <LogicalName>IzunaisbotBSP.UI.settings.bsml</LogicalName>
         </EmbeddedResource>
         <EmbeddedResource Include="manifest.json">
-            <LogicalName>IzudisbotBSP.manifest.json</LogicalName>
+            <LogicalName>IzunaisbotBSP.manifest.json</LogicalName>
         </EmbeddedResource>
     </ItemGroup>
 

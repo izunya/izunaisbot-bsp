@@ -2,7 +2,7 @@ using IPA;
 using IPA.Loader;
 using IPALogger = IPA.Logging.Logger;
 
-namespace IzudisbotBSP
+namespace IzunaisbotBSP
 {
     /// <summary>
     /// BSIPA 진입점.
@@ -28,7 +28,7 @@ namespace IzudisbotBSP
         {
             Log = logger;
             Self = metadata;
-            Log.Info("izudisbot-bsp v" + (metadata?.Version?.ToString() ?? "?") + " loaded");
+            Log.Info("izunaisbot-bsp v" + (metadata?.Version?.ToString() ?? "?") + " loaded");
         }
 
         [OnEnable]
@@ -91,7 +91,7 @@ namespace IzudisbotBSP
             _chzzk?.Stop();
             _chzzk = null;
             try { VoiceIndicator.Shutdown(); } catch { }
-            Log?.Info("izudisbot-bsp disabled");
+            Log?.Info("izunaisbot-bsp disabled");
         }
     }
 }

@@ -15,7 +15,7 @@ using Newtonsoft.Json.Linq;
 using UnityEngine;
 using WebSocketSharp;
 
-namespace IzudisbotBSP
+namespace IzunaisbotBSP
 {
     /// <summary>
     /// 치지직(Chzzk) → BeatSaberPlus 채팅 브리지.
@@ -191,7 +191,7 @@ namespace IzudisbotBSP
             if (_worker != null && _worker.IsAlive) return;
             _stop.Reset();
             int gen = ++_generation;
-            _worker = new Thread(() => WorkerLoop(gen)) { IsBackground = true, Name = "izudisbot-chzzk" };
+            _worker = new Thread(() => WorkerLoop(gen)) { IsBackground = true, Name = "izunaisbot-chzzk" };
             _worker.Start();
         }
 

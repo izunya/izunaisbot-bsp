@@ -1,10 +1,10 @@
 {
     "$schema": "https://raw.githubusercontent.com/bsmg/BSIPA-MetadataFileSchema/master/Schema.json",
-    "id": "izudisbot-bsp",
-    "name": "izudisbot Discord Bridge",
+    "id": "izunaisbot-bsp",
+    "name": "izunaisbot Discord Bridge",
     "author": "izunya",
-    "version": "0.6.0",
-    "description": "Forwards Discord channel messages to BeatSaberPlus Chat + ChatRequest via izudisbot bot WebSocket bridge.",
+    "version": "0.6.1",
+    "description": "Forwards Discord channel messages to BeatSaberPlus Chat + ChatRequest via izunaisbot bot WebSocket bridge.",
     "gameVersion": "1.40.8",
     "dependsOn": {
         "BSIPA": "^4.3.0"

@@ -1,4 +1,4 @@
-namespace IzudisbotBSP
+namespace IzunaisbotBSP
 {
     /// <summary>
     /// 로컬 웹 UI 의 단일 HTML 페이지 (영어/한국어/일본어 드롭다운).
@@ -11,7 +11,7 @@ namespace IzudisbotBSP
 <head>
 <meta charset='utf-8'>
 <meta name='viewport' content='width=device-width, initial-scale=1'>
-<title>izudisbot Discord Bridge</title>
+<title>izunaisbot Discord Bridge</title>
 <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css' rel='stylesheet'>
 <script src='https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js'></script>
 <style>
@@ -25,7 +25,7 @@ namespace IzudisbotBSP
 <body class='bg-dark'>
  <nav class='navbar bg-body-tertiary border-bottom'>
   <div class='container'>
-   <span class='navbar-brand mb-0'>🟦 izudisbot Discord Bridge</span>
+   <span class='navbar-brand mb-0'>🟦 izunaisbot Discord Bridge</span>
    <span>
     <div class='dropdown d-inline-block me-2'>
      <button id='langbtn' class='btn btn-sm btn-outline-secondary dropdown-toggle' type='button' data-bs-toggle='dropdown' aria-expanded='false'>🌐 EN</button>
@@ -342,7 +342,7 @@ function render(s){
  const ub=$('update-banner');
  if(s.updateAvailable && s.latestVersion){
   $('update-version').textContent=s.latestVersion;
-  $('update-link').href=s.latestUrl||'https://github.com/izunya/izudisbot-bsp/releases';
+  $('update-link').href=s.latestUrl||'https://github.com/izunya/izunaisbot-bsp/releases';
   ub.style.display='block';
  } else {
   ub.style.display='none';

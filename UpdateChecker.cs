@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using IPALogger = IPA.Logging.Logger;
 
-namespace IzudisbotBSP
+namespace IzunaisbotBSP
 {
     /// <summary>
     /// 모드 자체 최신 릴리스 체크. GitHub Releases API 의 latest 응답에서 tag_name 을
@@ -16,8 +16,8 @@ namespace IzudisbotBSP
     /// </summary>
     public static class UpdateChecker
     {
-        private const string ReleasesApi = "https://api.github.com/repos/izunya/izudisbot-bsp/releases/latest";
-        private const string UserAgent = "izudisbot-bsp/self-update";
+        private const string ReleasesApi = "https://api.github.com/repos/izunya/izunaisbot-bsp/releases/latest";
+        private const string UserAgent = "izunaisbot-bsp/self-update";
         private static readonly TimeSpan PollInterval = TimeSpan.FromHours(24);
         private static readonly HttpClient Http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
         private static Timer _timer;

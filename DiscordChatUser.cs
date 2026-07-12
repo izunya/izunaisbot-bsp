@@ -1,6 +1,6 @@
 using CP_SDK.Chat.Interfaces;
 
-namespace IzudisbotBSP
+namespace IzunaisbotBSP
 {
     public class DiscordChatUser : IChatUser
     {
