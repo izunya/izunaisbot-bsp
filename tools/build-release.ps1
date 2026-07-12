@@ -25,7 +25,10 @@ param(
     # 지정 시 gh 로 GitHub 릴리스를 만들고 zip 3개를 업로드.
     [switch]$Publish,
     # -Publish 시 릴리스 노트로 쓸 마크다운 파일 (없으면 자동 생성 노트).
-    [string]$NotesFile
+    [string]$NotesFile,
+    # -Publish 시 태그가 가리킬 대상. 기본은 현재 HEAD 커밋(SHA).
+    # main 이 아닌 브랜치에서 릴리스할 때 태그가 엉뚱한 커밋을 가리키지 않도록 명시.
+    [string]$Target
 )
 
 $ErrorActionPreference = 'Stop'
@@ -101,6 +104,10 @@ if ($Publish) {
         $notesArgs = @('--generate-notes')
     }
 
+    # 태그가 가리킬 커밋: -Target 없으면 현재 HEAD SHA (main 아닌 브랜치 대비).
+    if ([string]::IsNullOrWhiteSpace($Target)) { $Target = (git rev-parse HEAD).Trim() }
+    Write-Host "태그 대상 커밋: $Target" -ForegroundColor Cyan
+
     # 릴리스가 이미 있으면 자산만 덮어쓰기, 없으면 새로 생성.
     gh release view $tag *> $null
     if ($LASTEXITCODE -eq 0) {
@@ -108,7 +115,7 @@ if ($Publish) {
         gh release upload $tag @artifacts --clobber
     } else {
         Write-Host "릴리스 $tag 생성" -ForegroundColor Cyan
-        gh release create $tag @artifacts --title $Version @notesArgs
+        gh release create $tag @artifacts --title $Version --target $Target @notesArgs
     }
     if ($LASTEXITCODE -ne 0) { throw "gh 릴리스 실패" }
     Write-Host "릴리스 완료: $tag" -ForegroundColor Green
