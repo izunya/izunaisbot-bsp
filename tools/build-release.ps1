@@ -108,15 +108,25 @@ if ($Publish) {
     if ([string]::IsNullOrWhiteSpace($Target)) { $Target = (git rev-parse HEAD).Trim() }
     Write-Host "태그 대상 커밋: $Target" -ForegroundColor Cyan
 
-    # 릴리스가 이미 있으면 자산만 덮어쓰기, 없으면 새로 생성.
-    gh release view $tag *> $null
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "릴리스 $tag 존재 → 자산 업로드(--clobber)" -ForegroundColor Cyan
-        gh release upload $tag @artifacts --clobber
-    } else {
-        Write-Host "릴리스 $tag 생성" -ForegroundColor Cyan
-        gh release create $tag @artifacts --title $Version --target $Target @notesArgs
+    # gh 는 정상 진행 메시지도 stderr 로 쓴다. PS 5.1 에서 $ErrorActionPreference='Stop'
+    # 상태로 native stderr 를 만나면 NativeCommandError 가 종료 예외가 되므로,
+    # gh 호출 구간만 Continue 로 낮추고 성공 여부는 $LASTEXITCODE 로 직접 판정한다.
+    $eap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        # 릴리스가 이미 있으면 자산만 덮어쓰기, 없으면 새로 생성.
+        gh release view $tag 1>$null 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "릴리스 $tag 존재 → 자산 업로드(--clobber)" -ForegroundColor Cyan
+            gh release upload $tag @artifacts --clobber
+        } else {
+            Write-Host "릴리스 $tag 생성" -ForegroundColor Cyan
+            gh release create $tag @artifacts --title $Version --target $Target @notesArgs
+        }
+        $ghExit = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $eap
     }
-    if ($LASTEXITCODE -ne 0) { throw "gh 릴리스 실패" }
+    if ($ghExit -ne 0) { throw "gh 릴리스 실패 (exit $ghExit)" }
     Write-Host "릴리스 완료: $tag" -ForegroundColor Green
 }
