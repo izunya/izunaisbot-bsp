@@ -19,7 +19,7 @@
         <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
         <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
         <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
-        <Version>0.6.1</Version>
+        <Version>0.6.2</Version>
         <DefineConstants>$(DefineConstants);BSML_LEGACY</DefineConstants>
         <!-- 1.29.1 인스턴스 경로 (루트 Directory.Build.props 값을 덮어씀) -->
         <BeatSaberDir>C:\Users\izuna\BSManager\BSInstances\1.29.1</BeatSaberDir>
