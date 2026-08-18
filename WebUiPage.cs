@@ -416,7 +416,8 @@ function renderChzzk(s){
 
  const cl=s.chzzkLog||[];
  $('chzzk-log').innerHTML= cl.length? cl.map(m=>
-  `<div class='row-f'><span class='text-secondary'>${m.time}</span> <b>${esc(m.user)}</b>: ${esc(m.content)}</div>`
+  `<div class='row-f ${m.forwarded?'':'muted'}'><span class='text-secondary'>${m.time}</span> <b>${esc(m.user)}</b>: ${esc(m.content)}`+
+  `${m.forwarded?'':` <span class='text-warning'>${t('log.filtered')}</span>`}</div>`
  ).join('') : `<div class='text-secondary'>${t('log.none')}</div>`;
 }
 

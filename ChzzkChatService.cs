@@ -51,7 +51,10 @@ namespace IzunaisbotBSP
         private Thread _worker;
         private volatile bool _shouldRun;
         private volatile bool _connected;
+        // 세대 토큰. 증가는 _genLock 안에서만(++ 는 원자적이지 않다 — 메인 스레드 Stop 과
+        // 웹 UI 스레드 Reconfigure 가 동시에 올 수 있음), 읽기는 volatile.
         private volatile int _generation;
+        private readonly object _genLock = new object();
         // _stop: 워커 정지/재설정 신호 (백오프 Sleep 을 깨움). _wsClosed: WS 가 닫혔다는 신호.
         // 둘을 분리해야 WS 가 닫혀도 폴링 백오프가 무력화되지 않는다 (재접속 폭주 방지).
         private readonly ManualResetEvent _stop = new ManualResetEvent(false);
@@ -89,6 +92,8 @@ namespace IzunaisbotBSP
             public string Time { get; set; }
             public string User { get; set; }
             public string Content { get; set; }
+            /// <summary>필터(ForwardOnlyCommands) 통과해 게임으로 전달됐는지 — 웹 UI 에서 흐리게 표시.</summary>
+            public bool Forwarded { get; set; }
         }
 
         public ReadOnlyCollection<(IChatService, IChatChannel)> Channels
@@ -166,7 +171,39 @@ namespace IzunaisbotBSP
         public string WebPageJSValidate() => "";
         public void WebPageOnPost(Dictionary<string, string> postData) { }
 
-        public void SendTextMessage(IChatChannel channel, string message) { }
+        /// <summary>
+        /// BSP_ChatRequest / wipbot 등이 치지직 채팅으로 보낸 응답. 익명 READ 접속이라
+        /// 실제 치지직 채팅창에는 못 쓰지만, 그대로 버리면 치지직 시청자의 !bsr 결과가
+        /// 게임 어디에도 안 뜬다(디스코드 브리지는 EchoToOverlay 로 이미 띄우고 있음).
+        /// → 합성 발신자로 되울려 BSP_Chat 오버레이에 표시한다.
+        /// 구독자(BSP_Chat/ChatRequest)에게만 가고 우리 수신 경로로는 안 돌아오므로 루프 없음.
+        /// </summary>
+        public void SendTextMessage(IChatChannel channel, string message)
+        {
+            if (string.IsNullOrEmpty(message)) return;
+            try
+            {
+                var ch = channel ?? AnyChannel();
+                if (ch == null) return;
+                var msg = new ChzzkChatMessage(Guid.NewGuid().ToString(), message, BotUser, ch);
+                m_OnTextMessageReceivedCallbacks?.InvokeAll((IChatService)this, msg);
+            }
+            catch (Exception err) { _log?.Warn("Chzzk in-game echo 실패: " + err.Message); }
+        }
+
+        /// <summary>오버레이 에코용 합성 발신자 (치지직 그린).</summary>
+        private static readonly ChzzkChatUser BotUser =
+            new ChzzkChatUser("izunaisbot-bot", "izunaisbot", "#08FFA6");
+
+        /// <summary>발신 채널이 안 주어졌을 때 쓸 임의의 알려진 채널 (없으면 null).</summary>
+        private ChzzkChatChannel AnyChannel()
+        {
+            lock (_lock)
+            {
+                foreach (var c in _channels.Values) return c;
+            }
+            return null;
+        }
         public void JoinTempChannel(string groupIdentifier, string channelName, string prefix, bool canSendMessage) { }
         public void LeaveTempChannel(string channelName) { }
         public bool IsInTempChannel(string channelName) => false;
@@ -190,7 +227,7 @@ namespace IzunaisbotBSP
             }
             if (_worker != null && _worker.IsAlive) return;
             _stop.Reset();
-            int gen = ++_generation;
+            int gen = NextGeneration();
             _worker = new Thread(() => WorkerLoop(gen)) { IsBackground = true, Name = "izunaisbot-chzzk" };
             _worker.Start();
         }
@@ -199,12 +236,21 @@ namespace IzunaisbotBSP
         {
             // _generation 을 올려 현재 워커를 "구세대"로 만든다 → 워커가 스스로 빠져나온다.
             // (Reconfigure 시엔 _shouldRun/ChzzkEnabled 가 계속 true 라 이 토큰 없이는 안 죽음)
-            _generation++;
+            //
+            // 워커를 Join 하지 않는다: Stop() 은 Unity 메인 스레드(BspChatGate 폴링/OnDisable)에서
+            // 호출되는데, 워커가 HTTP(최대 10초) 안에 있으면 그만큼 게임이 멈춘다.
+            // 대신 구세대 워커가 새 세대를 방해하지 못하도록 두 가지를 보장한다:
+            //   1) 블로킹 호출 직후마다 Active(gen) 검사 → 즉시 탈출
+            //   2) 소켓 종료/상태 갱신은 "자기 소켓/자기 세대"일 때만 (CloseSocket(ws) / IsCurrent)
+            NextGeneration();
             _stop.Set();
             CloseSocket();
-            var w = _worker;
             _worker = null;
-            try { if (w != null && w.IsAlive && w != Thread.CurrentThread) w.Join(3000); } catch { }
+        }
+
+        private int NextGeneration()
+        {
+            lock (_genLock) { return ++_generation; }
         }
 
         /// <summary>이 세대(gen)의 워커가 계속 돌아야 하는지.</summary>
@@ -214,6 +260,8 @@ namespace IzunaisbotBSP
         {
             int notLiveBackoff = 0;
             int wsFailBackoff = 0;
+            int apiFailBackoff = 0;
+            bool warnedMissingChannel = false;   // 채널 없음 안내는 세대당 1회만 (게임 채팅 스팸 방지)
             while (Active(gen))
             {
                 var channelId = (_config.ChzzkChannelId ?? "").Trim();
@@ -221,20 +269,47 @@ namespace IzunaisbotBSP
 
                 try
                 {
-                    var channel = GetChannelInfo(channelId);
+                    var channel = GetChannelInfo(channelId, out bool infoApiFailed);
+                    if (!Active(gen)) break;   // HTTP 동안 정지/재설정됐을 수 있음
                     if (channel == null)
                     {
-                        SetStatus("채널을 찾을 수 없음 (" + channelId + ")");
-                        m_OnSystemMessageCallbacks?.InvokeAll(this,
-                            "<color=orange><b>Chzzk: 채널을 찾을 수 없습니다 (" + channelId + "). 채널 ID 를 확인하세요.</b></color>");
-                        if (!Sleep(gen, 15000)) break;
+                        // 네트워크/API 장애와 "잘못된 채널 ID" 를 구분한다.
+                        // (예전엔 둘 다 '채널을 찾을 수 없음' 으로 처리해 랜선 끊기면 15초마다
+                        //  게임 채팅에 잘못된 경고가 도배됐다.)
+                        if (infoApiFailed)
+                        {
+                            apiFailBackoff = Math.Min(apiFailBackoff + 1, 10);
+                            SetStatus("치지직 API 응답 없음 — 재시도 대기");
+                            if (!Sleep(gen, (5 + apiFailBackoff * 5) * 1000)) break;
+                        }
+                        else
+                        {
+                            SetStatus("채널을 찾을 수 없음 (" + channelId + ")");
+                            if (!warnedMissingChannel)
+                            {
+                                warnedMissingChannel = true;
+                                m_OnSystemMessageCallbacks?.InvokeAll(this,
+                                    "<color=orange><b>Chzzk: 채널을 찾을 수 없습니다 (" + channelId + "). 채널 ID 를 확인하세요.</b></color>");
+                            }
+                            if (!Sleep(gen, 15000)) break;
+                        }
                         continue;
                     }
+                    apiFailBackoff = 0;
+                    warnedMissingChannel = false;
                     SetChannelName(channel.Name);
 
-                    var live = GetLiveStatus(channelId);
+                    var live = GetLiveStatus(channelId, out bool liveApiFailed);
+                    if (!Active(gen)) break;
                     if (live == null)
                     {
+                        if (liveApiFailed)
+                        {
+                            apiFailBackoff = Math.Min(apiFailBackoff + 1, 10);
+                            SetStatus("치지직 API 응답 없음 — 재시도 대기");
+                            if (!Sleep(gen, (5 + apiFailBackoff * 5) * 1000)) break;
+                            continue;
+                        }
                         notLiveBackoff = Math.Min(notLiveBackoff + 2, 20);
                         SetStatus("방송 대기 중 — " + channel.Name);
                         if (!Sleep(gen, (10 + notLiveBackoff) * 1000)) break;
@@ -243,6 +318,7 @@ namespace IzunaisbotBSP
                     notLiveBackoff = 0;
 
                     var accessToken = GetAccessToken(live.ChatChannelId);
+                    if (!Active(gen)) break;
                     if (string.IsNullOrEmpty(accessToken))
                     {
                         SetStatus("채팅 토큰 발급 실패");
@@ -251,7 +327,7 @@ namespace IzunaisbotBSP
                     }
 
                     SetLiveTitle(live.LiveTitle);
-                    bool opened = ConnectAndListen(live.ChatChannelId, accessToken, channel.Name, live.LiveTitle);
+                    bool opened = ConnectAndListen(gen, live.ChatChannelId, accessToken, channel.Name, live.LiveTitle);
                     // 연결이 한 번이라도 열렸으면 정상 재폴링(3s). 한 번도 못 열렸으면(TLS/네트워크 등)
                     // 지수적 백오프로 폭주를 막는다.
                     if (opened)
@@ -273,8 +349,12 @@ namespace IzunaisbotBSP
                     if (!Sleep(gen, 8000)) break;
                 }
             }
-            _connected = false;
-            if (gen == _generation) SetStatus(_config.ChzzkEnabled ? "정지됨" : "disabled");
+            // 구세대 워커가 뒤늦게 종료하며 새 워커의 연결 상태/문구를 덮어쓰지 않도록 가드.
+            if (gen == _generation)
+            {
+                _connected = false;
+                SetStatus(_config.ChzzkEnabled ? "정지됨" : "disabled");
+            }
             _log?.Info("Chzzk worker 종료 (gen " + gen + ")");
         }
 
@@ -293,54 +373,66 @@ namespace IzunaisbotBSP
         // ================================================================
 
         /// <summary>WS 에 붙어 닫힐 때까지 블록. 한 번이라도 OnOpen 됐으면 true 반환.</summary>
-        private bool ConnectAndListen(string chatChannelId, string accessToken, string channelName, string liveTitle)
+        private bool ConnectAndListen(int gen, string chatChannelId, string accessToken, string channelName, string liveTitle)
         {
-            CloseSocket();
             _wsClosed.Reset();
             bool opened = false;
 
             var id = Math.Abs(Guid.NewGuid().GetHashCode()) % 5 + 1;   // kr-ss1..5
             var uri = "wss://kr-ss" + id + ".chat.naver.com/chat";
-            _ws = new WebSocket(uri);
+            // 소켓 인스턴스를 지역 변수로 잡고 모든 콜백에서 IsCurrent 로 확인한다.
+            // 구세대 워커가 교체된 소켓을 붙잡고 늦게 콜백을 때려도 현재 연결 상태를 못 건드린다.
+            var ws = new WebSocket(uri);
+            // 새 소켓을 원자적으로 설치하고, 남아 있던 소켓만 정리한다.
+            // ("현재 소켓을 닫고 → 새로 만든다" 순서면 그 사이에 낀 다른 세대의 소켓을 끊을 수 있다.)
+            var prev = Interlocked.Exchange(ref _ws, ws);
+            if (prev != null) { try { prev.CloseAsync(); } catch { } }
             // websocket-sharp 는 기본이 옛 SSL → 네이버 채팅 서버가 핸드셰이크를 거부(close 1015).
             // TLS1.2 를 명시하고, 비트세이버 Mono 의 불완전한 루트 CA 스토어 때문에 인증서 검증도 통과시킨다.
-            _ws.SslConfiguration.EnabledSslProtocols = SslProtocols.Tls12;
-            _ws.SslConfiguration.ServerCertificateValidationCallback = (s, c, ch, e) => true;
-            _ws.OnOpen += (s, e) =>
+            ws.SslConfiguration.EnabledSslProtocols = SslProtocols.Tls12;
+            ws.SslConfiguration.ServerCertificateValidationCallback = (s, c, ch, e) => true;
+            ws.OnOpen += (s, e) =>
             {
+                if (!IsCurrent(ws)) return;
                 opened = true;
                 _connected = true;
                 SetStatus("연결됨 — " + (string.IsNullOrEmpty(liveTitle) ? channelName : liveTitle));
                 _log?.Info("Chzzk WS 연결: " + uri);
-                SendConnect(chatChannelId, accessToken);
+                SendConnect(ws, chatChannelId, accessToken);
                 EnsureChannel(chatChannelId, channelName);
                 m_OnSystemMessageCallbacks?.InvokeAll(this,
                     "<color=#08FFA6><b>Chzzk: \"" + (liveTitle ?? channelName) + "\" 채팅 연결됨</b></color>");
             };
-            _ws.OnMessage += (s, e) => { try { HandleWsMessage(e.Data, chatChannelId, channelName); } catch (Exception err) { _log?.Warn("Chzzk 메시지 처리 실패: " + err.Message); } };
-            _ws.OnError += (s, e) => _log?.Warn("Chzzk WS error: " + e.Message);
-            _ws.OnClose += (s, e) =>
+            ws.OnMessage += (s, e) =>
             {
+                if (!IsCurrent(ws)) return;
+                try { HandleWsMessage(ws, e.Data, chatChannelId, channelName); }
+                catch (Exception err) { _log?.Warn("Chzzk 메시지 처리 실패: " + err.Message); }
+            };
+            ws.OnError += (s, e) => { if (IsCurrent(ws)) _log?.Warn("Chzzk WS error: " + e.Message); };
+            ws.OnClose += (s, e) =>
+            {
+                if (!IsCurrent(ws)) return;
                 _connected = false;
                 _log?.Info("Chzzk WS 닫힘: code=" + e.Code);
                 _wsClosed.Set();
             };
 
-            try { _ws.Connect(); }
-            catch (Exception err) { _log?.Warn("Chzzk WS 연결 실패: " + err.Message); CloseSocket(); return opened; }
+            try { ws.Connect(); }
+            catch (Exception err) { _log?.Warn("Chzzk WS 연결 실패: " + err.Message); CloseSocket(ws); return opened; }
 
             // 닫히거나(또는 정지) 까지 블록하되, HeartbeatMs 마다 PING(cmd 0)을 보낸다.
             // 치지직 채팅 서버는 클라 heartbeat 가 없으면 ~60초 idle timeout 으로 끊는다(close 1006).
             var handles = new WaitHandle[] { _wsClosed, _stop };
-            while (WaitHandle.WaitAny(handles, HeartbeatMs) == WaitHandle.WaitTimeout)
+            while (Active(gen) && WaitHandle.WaitAny(handles, HeartbeatMs) == WaitHandle.WaitTimeout)
             {
-                SafeSend("{\"ver\":\"3\",\"cmd\":0}");
+                SafeSend(ws, "{\"ver\":\"3\",\"cmd\":0}");
             }
-            CloseSocket();
+            CloseSocket(ws);
             return opened;
         }
 
-        private void SendConnect(string chatChannelId, string accessToken)
+        private void SendConnect(WebSocket ws, string chatChannelId, string accessToken)
         {
             var bdy = new JObject
             {
@@ -358,38 +450,47 @@ namespace IzunaisbotBSP
                 ["bdy"] = bdy,
                 ["tid"] = 1,
             };
-            SafeSend(obj.ToString(Newtonsoft.Json.Formatting.None));
+            SafeSend(ws, obj.ToString(Newtonsoft.Json.Formatting.None));
         }
 
-        private void SafeSend(string msg)
+        private void SafeSend(WebSocket ws, string msg)
         {
-            try { if (_ws != null && _ws.ReadyState == WebSocketState.Open) _ws.Send(msg); }
+            try { if (ws != null && ws.ReadyState == WebSocketState.Open) ws.Send(msg); }
             catch (Exception err) { _log?.Warn("Chzzk send 실패: " + err.Message); }
         }
 
+        /// <summary>이 소켓이 아직 "현재" 소켓인지 (교체된 옛 소켓의 늦은 콜백 무시용).</summary>
+        private bool IsCurrent(WebSocket ws) => ReferenceEquals(ws, _ws);
+
+        /// <summary>현재 소켓을 닫는다 (Stop/Reconfigure).</summary>
         private void CloseSocket()
         {
-            var ws = _ws;
-            _ws = null;
+            var ws = Interlocked.Exchange(ref _ws, null);
             _connected = false;
-            if (ws != null)
-            {
-                try { ws.Close(); } catch { }
-            }
+            // Close() 는 동기라 호출 스레드(= Stop 시 Unity 메인 스레드)를 붙잡는다 → 비동기 종료.
+            if (ws != null) { try { ws.CloseAsync(); } catch { } }
+        }
+
+        /// <summary>지정한 소켓만 닫는다 — 구세대 워커가 새 세대의 소켓을 끊지 않도록.</summary>
+        private void CloseSocket(WebSocket ws)
+        {
+            if (ws == null) return;
+            if (ReferenceEquals(Interlocked.CompareExchange(ref _ws, null, ws), ws)) _connected = false;
+            try { ws.CloseAsync(); } catch { }
         }
 
         // ================================================================
         // 수신 메시지 파싱
         // ================================================================
 
-        private void HandleWsMessage(string raw, string chatChannelId, string channelName)
+        private void HandleWsMessage(WebSocket ws, string raw, string chatChannelId, string channelName)
         {
             var obj = JObject.Parse(raw);
             var cmd = obj["cmd"]?.ToObject<int?>() ?? -1;
 
             if (cmd == 0)   // PING → PONG
             {
-                SafeSend("{\"ver\":\"3\",\"cmd\":10000}");
+                SafeSend(ws, "{\"ver\":\"3\",\"cmd\":10000}");
                 return;
             }
             if (cmd != 93101) return;   // 93101 = 일반 채팅만 (도네이션/시스템 제외)
@@ -416,6 +517,13 @@ namespace IzunaisbotBSP
             var content = chat["msg"]?.ToString() ?? "";
             var uid = chat["uid"]?.ToString() ?? "";
             var nickname = profile["nickname"]?.ToString() ?? "Unknown";
+
+            // 디스코드 브리지와 동일한 필터 적용 — '명령어(!)만 전달' 은 서비스 공통 설정이다.
+            // (채널 음소거(DisabledChannels)는 디스코드 채널 목록 전용이라 여기선 해당 없음.)
+            var forward = !_config.ForwardOnlyCommands || content.StartsWith("!");
+            RecordIncoming(nickname, content, forward);
+            if (!forward) return;
+
             var roleCode = profile["userRoleCode"]?.ToString() ?? "";
             var color = ResolveColor(profile, uid, chatChannelId);
 
@@ -429,10 +537,11 @@ namespace IzunaisbotBSP
 
             var emotes = ParseEmotes(chat["extras"]?.ToString(), content);
 
-            var msgId = chat["msgTime"]?.ToString() ?? Guid.NewGuid().ToString();
+            // msgTime 은 ms 단위라 같은 밀리초의 다른 메시지끼리 겹칠 수 있다 → uid 로 구분.
+            var msgTime = chat["msgTime"]?.ToString();
+            var msgId = string.IsNullOrEmpty(msgTime) ? Guid.NewGuid().ToString() : msgTime + "-" + uid;
             var message = new ChzzkChatMessage(msgId, content, user, channel, emotes);
 
-            RecordIncoming(nickname, content);
             m_OnTextMessageReceivedCallbacks?.InvokeAll((IChatService)this, message);
         }
 
@@ -490,7 +599,7 @@ namespace IzunaisbotBSP
             }
         }
 
-        private void RecordIncoming(string user, string content)
+        private void RecordIncoming(string user, string content, bool forwarded)
         {
             lock (_logLock)
             {
@@ -500,6 +609,7 @@ namespace IzunaisbotBSP
                     Time = DateTime.Now.ToString("HH:mm:ss"),
                     User = user,
                     Content = content,
+                    Forwarded = forwarded,
                 });
                 while (_recentLog.Count > MaxLog) _recentLog.RemoveLast();
             }
@@ -512,10 +622,15 @@ namespace IzunaisbotBSP
         private class ChannelInfoDto { public string Id; public string Name; public bool OpenLive; }
         private class LiveDto { public string ChatChannelId; public string LiveTitle; }
 
-        private ChannelInfoDto GetChannelInfo(string channelId)
+        /// <summary>
+        /// 채널 정보 조회. 못 가져오면 null 이며, <paramref name="apiFailed"/> 로
+        /// "네트워크/API 장애"(true)와 "그런 채널 없음"(false)을 구분한다.
+        /// </summary>
+        private ChannelInfoDto GetChannelInfo(string channelId, out bool apiFailed)
         {
+            apiFailed = false;
             var json = HttpGet("https://api.chzzk.naver.com/service/v1/channels/" + channelId);
-            if (json == null) return null;
+            if (json == null) { apiFailed = true; return null; }
             var content = json["content"];
             var id = content?["channelId"]?.ToString();
             if (string.IsNullOrEmpty(id)) return null;
@@ -527,12 +642,17 @@ namespace IzunaisbotBSP
             };
         }
 
-        /// <summary>방송 중이면 (chatChannelId, liveTitle), 아니면 null.</summary>
-        private LiveDto GetLiveStatus(string channelId)
+        /// <summary>
+        /// 방송 중이면 (chatChannelId, liveTitle), 아니면 null.
+        /// <paramref name="apiFailed"/> 는 "API 를 못 불렀다"(true)와 "방송 중이 아니다"(false) 구분용.
+        /// </summary>
+        private LiveDto GetLiveStatus(string channelId, out bool apiFailed)
         {
+            apiFailed = false;
             var json = HttpGet("https://api.chzzk.naver.com/polling/v3.1/channels/" + channelId + "/live-status");
-            var content = json?["content"];
-            if (content == null) return null;
+            if (json == null) { apiFailed = true; return null; }
+            var content = json["content"];
+            if (content == null) { apiFailed = true; return null; }
 
             var pollingJson = content["livePollingStatusJson"]?.ToString();
             if (!string.IsNullOrEmpty(pollingJson))
