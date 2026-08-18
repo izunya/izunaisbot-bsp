@@ -3,7 +3,7 @@
     "id": "izunaisbot-bsp",
     "name": "izunaisbot Discord Bridge",
     "author": "izunya",
-    "version": "0.6.2",
+    "version": "0.6.3",
     "description": "Forwards Discord channel messages to BeatSaberPlus Chat + ChatRequest via izunaisbot bot WebSocket bridge.",
     "gameVersion": "1.40.8",
     "dependsOn": {
