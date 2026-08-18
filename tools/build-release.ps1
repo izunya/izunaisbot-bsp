@@ -113,6 +113,7 @@ if ($Publish) {
     # gh 호출 구간만 Continue 로 낮추고 성공 여부는 $LASTEXITCODE 로 직접 판정한다.
     $eap = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
+    $ghExit = 1   # try 안에서 예외로 빠져나가면 '실패'로 취급 (미할당 시 오해를 부르는 메시지 방지)
     try {
         # 릴리스가 이미 있으면 자산만 덮어쓰기, 없으면 새로 생성.
         gh release view $tag 1>$null 2>$null
