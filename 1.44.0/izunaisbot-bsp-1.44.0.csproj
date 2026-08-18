@@ -19,6 +19,12 @@
         <Version>0.6.3</Version>
         <!-- 1.44.0 게임 경로 (루트 Directory.Build.props 값을 덮어씀). Steam 설치본. -->
         <BeatSaberDir>C:\Program Files (x86)\Steam\steamapps\common\Beat Saber</BeatSaberDir>
+        <!-- 게임 업데이트로 이 설치의 Plugins 에서 BeatSaberPlus 가 빠지면 ChatPlexSDK_BS.dll 도
+             사라져 빌드가 통째로 깨진다. 그럴 때만 1.40.8 인스턴스의 SDK 로 폴백한다
+             (1.44 는 1.40.8 과 레이아웃이 같아 SDK API 도 동일). 1.44 용 BSP 를 다시 설치하면
+             조건이 풀려 자동으로 원래 경로를 쓴다. -->
+        <ChatPlexSdkDll>$(BeatSaberDir)\Plugins\ChatPlexSDK_BS.dll</ChatPlexSdkDll>
+        <ChatPlexSdkDll Condition="!Exists('$(ChatPlexSdkDll)')">C:\Users\izuna\BSManager\BSInstances\1.40.8\Plugins\ChatPlexSDK_BS.dll</ChatPlexSdkDll>
         <!-- 이 폴더엔 .cs 가 없고 전부 ..\ 에서 링크하므로 기본 글롭은 끔 -->
         <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     </PropertyGroup>
@@ -56,7 +62,7 @@
     <!-- BSP / BSIPA / Unity / BSML 참조 (1.44.0 = 1.40.8 메인과 동일 경로) -->
     <ItemGroup>
         <Reference Include="ChatPlexSDK_BS">
-            <HintPath>$(BeatSaberDir)\Plugins\ChatPlexSDK_BS.dll</HintPath>
+            <HintPath>$(ChatPlexSdkDll)</HintPath>
             <Private>false</Private>
         </Reference>
         <Reference Include="IPA.Loader">
