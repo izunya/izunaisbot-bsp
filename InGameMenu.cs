@@ -77,6 +77,13 @@ namespace IzunaisbotBSP
             }
         }
 
+        /// <summary>재시도 한도까지 등록에 실패했을 때 — 원인 파악용 로그 (기능은 웹 UI 로 대체 가능).</summary>
+        internal static void OnRegisterGaveUp()
+        {
+            _log?.Warn("MenuButtons 등록을 5분 내에 하지 못했습니다 — 모드탭 버튼/음성 인디케이터가 표시되지 않습니다. "
+                       + "웹 UI 는 정상 동작합니다.");
+        }
+
         /// <summary>모드탭 버튼 클릭 → 정면에 설정 FlowCoordinator 표시.</summary>
         private static void OpenSettings()
         {
@@ -128,11 +135,14 @@ namespace IzunaisbotBSP
 
         private IEnumerator Loop()
         {
-            for (int i = 0; i < 60; i++)
+            // 메뉴 씬이 늦게 뜨는 환경(모드 많음/HDD)에서 60초는 모자랐다. 등록에 실패하면
+            // 모드탭 버튼뿐 아니라 MenuReady 게이트에 걸린 VoiceIndicator 도 영영 안 뜬다.
+            for (int i = 0; i < 300; i++)
             {
                 if (InGameMenu.TryRegisterButton()) yield break;
                 yield return new WaitForSeconds(1f);
             }
+            InGameMenu.OnRegisterGaveUp();
         }
     }
 }
