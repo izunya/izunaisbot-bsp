@@ -1,7 +1,7 @@
 using BeatSaberMarkupLanguage;
 using HMUI;
 
-namespace IzudisbotBSP
+namespace IzunaisbotBSP
 {
     /// <summary>
     /// 모드탭 버튼 클릭 시 정면에 뜨는 설정 FlowCoordinator.
@@ -15,7 +15,7 @@ namespace IzudisbotBSP
         {
             if (firstActivation)
             {
-                SetTitle("izudisbot", ViewController.AnimationType.In);
+                SetTitle("izunaisbot", ViewController.AnimationType.In);
                 showBackButton = true;
                 _viewController = BeatSaberUI.CreateViewController<SettingsViewController>();
             }

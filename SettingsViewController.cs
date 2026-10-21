@@ -1,7 +1,7 @@
 using BeatSaberMarkupLanguage.Attributes;
 using BeatSaberMarkupLanguage.ViewControllers;
 
-namespace IzudisbotBSP
+namespace IzunaisbotBSP
 {
     /// <summary>
     /// 인게임 설정 패널의 뷰. UI/settings.bsml 을 임베디드 리소스로 로드.
@@ -9,7 +9,7 @@ namespace IzudisbotBSP
     /// </summary>
     internal class SettingsViewController : BSMLResourceViewController
     {
-        public override string ResourceName => "IzudisbotBSP.UI.settings.bsml";
+        public override string ResourceName => "IzunaisbotBSP.UI.settings.bsml";
 
         [UIAction("web-open")]
         private void WebOpen() => InGameMenu.OpenWeb();

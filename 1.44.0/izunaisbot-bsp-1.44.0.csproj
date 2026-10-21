@@ -11,14 +11,24 @@
     <PropertyGroup>
         <TargetFramework>net472</TargetFramework>
         <LangVersion>latest</LangVersion>
-        <AssemblyName>izudisbot-bsp</AssemblyName>
-        <RootNamespace>IzudisbotBSP</RootNamespace>
+        <AssemblyName>izunaisbot-bsp</AssemblyName>
+        <RootNamespace>IzunaisbotBSP</RootNamespace>
         <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
         <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
         <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
-        <Version>0.6.0</Version>
+        <Version>0.6.3</Version>
         <!-- 1.44.0 게임 경로 (루트 Directory.Build.props 값을 덮어씀). Steam 설치본. -->
         <BeatSaberDir>C:\Program Files (x86)\Steam\steamapps\common\Beat Saber</BeatSaberDir>
+        <!-- 게임 업데이트가 이 설치의 Plugins 폴더를 비우면(1.44.1/1.44.3 업데이트에서 실제로 발생)
+             모드가 제공하는 참조(ChatPlexSDK_BS, BSML)가 사라져 빌드가 통째로 깨진다.
+             해당 파일이 없을 때만 1.40.8 인스턴스의 것으로 폴백한다 — Libs/IPA/게임 Managed 는
+             이 설치(1.44) 것을 그대로 쓴다. 1.44 용 모드를 다시 설치하면 조건이 풀려 원래 경로 사용.
+             ※ 폴백 상태로 만든 1.44 zip 은 1.40.8 용 어셈블리에 맞춰 컴파일된 것이라 실기 확인 필요. -->
+        <FallbackPluginsDir>C:\Users\izuna\BSManager\BSInstances\1.40.8\Plugins</FallbackPluginsDir>
+        <ChatPlexSdkDll>$(BeatSaberDir)\Plugins\ChatPlexSDK_BS.dll</ChatPlexSdkDll>
+        <ChatPlexSdkDll Condition="!Exists('$(ChatPlexSdkDll)')">$(FallbackPluginsDir)\ChatPlexSDK_BS.dll</ChatPlexSdkDll>
+        <BsmlDll>$(BeatSaberDir)\Plugins\BSML.dll</BsmlDll>
+        <BsmlDll Condition="!Exists('$(BsmlDll)')">$(FallbackPluginsDir)\BSML.dll</BsmlDll>
         <!-- 이 폴더엔 .cs 가 없고 전부 ..\ 에서 링크하므로 기본 글롭은 끔 -->
         <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     </PropertyGroup>
@@ -32,6 +42,7 @@
         <Compile Include="..\DiscordChatUser.cs" Link="DiscordChatUser.cs" />
         <Compile Include="..\DiscordChatMessage.cs" Link="DiscordChatMessage.cs" />
         <Compile Include="..\DiscordChatEmote.cs" Link="DiscordChatEmote.cs" />
+        <Compile Include="..\ChzzkChatService.cs" Link="ChzzkChatService.cs" />
         <Compile Include="..\WebServer.cs" Link="WebServer.cs" />
         <Compile Include="..\WebUiPage.cs" Link="WebUiPage.cs" />
         <Compile Include="..\InGameMenu.cs" Link="InGameMenu.cs" />
@@ -45,17 +56,17 @@
     <!-- 임베디드 리소스: 공유 BSML + 이 폴더의 1.44.0 manifest -->
     <ItemGroup>
         <EmbeddedResource Include="..\UI\settings.bsml">
-            <LogicalName>IzudisbotBSP.UI.settings.bsml</LogicalName>
+            <LogicalName>IzunaisbotBSP.UI.settings.bsml</LogicalName>
         </EmbeddedResource>
         <EmbeddedResource Include="manifest.json">
-            <LogicalName>IzudisbotBSP.manifest.json</LogicalName>
+            <LogicalName>IzunaisbotBSP.manifest.json</LogicalName>
         </EmbeddedResource>
     </ItemGroup>
 
     <!-- BSP / BSIPA / Unity / BSML 참조 (1.44.0 = 1.40.8 메인과 동일 경로) -->
     <ItemGroup>
         <Reference Include="ChatPlexSDK_BS">
-            <HintPath>$(BeatSaberDir)\Plugins\ChatPlexSDK_BS.dll</HintPath>
+            <HintPath>$(ChatPlexSdkDll)</HintPath>
             <Private>false</Private>
         </Reference>
         <Reference Include="IPA.Loader">
@@ -75,7 +86,7 @@
             <Private>false</Private>
         </Reference>
         <Reference Include="BSML">
-            <HintPath>$(BeatSaberDir)\Plugins\BSML.dll</HintPath>
+            <HintPath>$(BsmlDll)</HintPath>
             <Private>false</Private>
         </Reference>
         <Reference Include="HMUI">

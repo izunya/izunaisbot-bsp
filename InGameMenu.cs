@@ -6,7 +6,7 @@ using HMUI;
 using UnityEngine;
 using IPALogger = IPA.Logging.Logger;
 
-namespace IzudisbotBSP
+namespace IzunaisbotBSP
 {
     /// <summary>
     /// 인게임 좌측 모드(Mods) 탭에 버튼 하나 등록 → 클릭하면 로컬 웹 UI 를 브라우저로 연다.
@@ -39,7 +39,7 @@ namespace IzudisbotBSP
             {
                 if (_helperGo == null)
                 {
-                    _helperGo = new GameObject("izudisbot-MenuButtonHelper");
+                    _helperGo = new GameObject("izunaisbot-MenuButtonHelper");
                     UnityEngine.Object.DontDestroyOnLoad(_helperGo);
                     _helperGo.AddComponent<MenuButtonHelper>();
                 }
@@ -58,8 +58,8 @@ namespace IzudisbotBSP
                 if (_button == null)
                 {
                     _button = new MenuButton(
-                        "izudisbot",
-                        "Open the izudisbot Discord bridge settings",
+                        "izunaisbot",
+                        "Open the izunaisbot Discord bridge settings",
                         OpenSettings);
                 }
 #if BSML_LEGACY
@@ -75,6 +75,13 @@ namespace IzudisbotBSP
             {
                 return false; // MenuButtons 아직 준비 안 됨 → 재시도
             }
+        }
+
+        /// <summary>재시도 한도까지 등록에 실패했을 때 — 원인 파악용 로그 (기능은 웹 UI 로 대체 가능).</summary>
+        internal static void OnRegisterGaveUp()
+        {
+            _log?.Warn("MenuButtons 등록을 5분 내에 하지 못했습니다 — 모드탭 버튼/음성 인디케이터가 표시되지 않습니다. "
+                       + "웹 UI 는 정상 동작합니다.");
         }
 
         /// <summary>모드탭 버튼 클릭 → 정면에 설정 FlowCoordinator 표시.</summary>
@@ -128,11 +135,14 @@ namespace IzudisbotBSP
 
         private IEnumerator Loop()
         {
-            for (int i = 0; i < 60; i++)
+            // 메뉴 씬이 늦게 뜨는 환경(모드 많음/HDD)에서 60초는 모자랐다. 등록에 실패하면
+            // 모드탭 버튼뿐 아니라 MenuReady 게이트에 걸린 VoiceIndicator 도 영영 안 뜬다.
+            for (int i = 0; i < 300; i++)
             {
                 if (InGameMenu.TryRegisterButton()) yield break;
                 yield return new WaitForSeconds(1f);
             }
+            InGameMenu.OnRegisterGaveUp();
         }
     }
 }

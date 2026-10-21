@@ -1,7 +1,7 @@
 ﻿using CP_SDK.Animation;
 using CP_SDK.Chat.Interfaces;
 
-namespace IzudisbotBSP
+namespace IzunaisbotBSP
 {
     public class DiscordChatEmote : IChatEmote
     {

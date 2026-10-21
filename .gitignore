@@ -14,7 +14,7 @@ bs-refs.b64.txt
 package/
 
 # 빌드 결과 zip (Releases 로만 배포)
-izudisbot-bsp-*.zip
+izunaisbot-bsp-*.zip
 
 # 릴리스 스테이징 폴더 (zip + 릴리스 노트 — Releases 로만 배포, 재생성 가능)
 dist/

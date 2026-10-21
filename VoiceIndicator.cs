@@ -7,7 +7,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace IzudisbotBSP
+namespace IzunaisbotBSP
 {
     /// <summary>
     /// 디스코드 음성채널 인원수를 표시하는 floating UI.
@@ -78,7 +78,7 @@ namespace IzudisbotBSP
             if (_instance != null) return;
             try
             {
-                var go = new GameObject("izudisbot-VoiceIndicator");
+                var go = new GameObject("izunaisbot-VoiceIndicator");
                 DontDestroyOnLoad(go);
                 _instance = go.AddComponent<VoiceIndicator>();
             }

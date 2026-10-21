@@ -1,62 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-    <!--
-        Beat Saber 1.29.1 빌드.
-        루트(1.40.8) 프로젝트와 .cs 소스를 전부 공유(링크)하고,
-        참조 DLL 과 manifest, BSML 분기 상수(BSML_LEGACY)만 다르게 한다.
-
-        1.40.8 과의 차이:
-          - HMUI 타입(FlowCoordinator/ViewController)이 HMUI.dll 에 통합 (BeatSaber.ViewSystem 없음)
-          - BSML 1.6.10 → MenuButtons.instance (소문자) → BSML_LEGACY 상수로 분기
-    -->
-
     <PropertyGroup>
-        <!-- 1.29.1 의 ChatPlexSDK_BS 등이 net48 로 빌드돼 있어 net48 타깃 -->
-        <TargetFramework>net48</TargetFramework>
+        <TargetFramework>net472</TargetFramework>
         <LangVersion>latest</LangVersion>
-        <AssemblyName>izudisbot-bsp</AssemblyName>
-        <RootNamespace>IzudisbotBSP</RootNamespace>
+        <AssemblyName>izunaisbot-bsp</AssemblyName>
+        <RootNamespace>IzunaisbotBSP</RootNamespace>
         <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
         <DisableImplicitFrameworkReferences>true</DisableImplicitFrameworkReferences>
         <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
-        <Version>0.6.0</Version>
-        <DefineConstants>$(DefineConstants);BSML_LEGACY</DefineConstants>
-        <!-- 1.29.1 인스턴스 경로 (루트 Directory.Build.props 값을 덮어씀) -->
-        <BeatSaberDir>C:\Users\izuna\BSManager\BSInstances\1.29.1</BeatSaberDir>
-        <!-- 이 폴더엔 .cs 가 없고 전부 ..\ 에서 링크하므로 기본 글롭은 끔 -->
-        <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+        <Version>0.6.3</Version>
     </PropertyGroup>
 
-    <!-- 공유 소스 링크 -->
-    <ItemGroup>
-        <Compile Include="..\Plugin.cs" Link="Plugin.cs" />
-        <Compile Include="..\Config.cs" Link="Config.cs" />
-        <Compile Include="..\DiscordChatService.cs" Link="DiscordChatService.cs" />
-        <Compile Include="..\DiscordChatChannel.cs" Link="DiscordChatChannel.cs" />
-        <Compile Include="..\DiscordChatUser.cs" Link="DiscordChatUser.cs" />
-        <Compile Include="..\DiscordChatMessage.cs" Link="DiscordChatMessage.cs" />
-        <Compile Include="..\DiscordChatEmote.cs" Link="DiscordChatEmote.cs" />
-        <Compile Include="..\WebServer.cs" Link="WebServer.cs" />
-        <Compile Include="..\WebUiPage.cs" Link="WebUiPage.cs" />
-        <Compile Include="..\InGameMenu.cs" Link="InGameMenu.cs" />
-        <Compile Include="..\BspChatGate.cs" Link="BspChatGate.cs" />
-        <Compile Include="..\SettingsFlowCoordinator.cs" Link="SettingsFlowCoordinator.cs" />
-        <Compile Include="..\SettingsViewController.cs" Link="SettingsViewController.cs" />
-        <Compile Include="..\VoiceIndicator.cs" Link="VoiceIndicator.cs" />
-        <Compile Include="..\UpdateChecker.cs" Link="UpdateChecker.cs" />
-    </ItemGroup>
-
-    <!-- 임베디드 리소스: 공유 BSML + 이 폴더의 1.29.1 manifest -->
-    <ItemGroup>
-        <EmbeddedResource Include="..\UI\settings.bsml">
-            <LogicalName>IzudisbotBSP.UI.settings.bsml</LogicalName>
-        </EmbeddedResource>
-        <EmbeddedResource Include="manifest.json">
-            <LogicalName>IzudisbotBSP.manifest.json</LogicalName>
-        </EmbeddedResource>
-    </ItemGroup>
-
-    <!-- BSP / BSIPA / Unity / BSML 참조 (1.29.1) -->
+    <!-- BSP / BSIPA / Unity references -->
     <ItemGroup>
         <Reference Include="ChatPlexSDK_BS">
             <HintPath>$(BeatSaberDir)\Plugins\ChatPlexSDK_BS.dll</HintPath>
@@ -82,19 +37,17 @@
             <HintPath>$(BeatSaberDir)\Plugins\BSML.dll</HintPath>
             <Private>false</Private>
         </Reference>
-        <!-- 1.29.1 은 FlowCoordinator/ViewController 가 HMUI.dll 에 있음 (ViewSystem 없음) -->
         <Reference Include="HMUI">
             <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\HMUI.dll</HintPath>
-            <Private>false</Private>
-        </Reference>
-        <!-- MenuButtons 의 베이스 PersistentSingleton 이 HMLib 에 있음 -->
-        <Reference Include="HMLib">
-            <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\HMLib.dll</HintPath>
             <Private>false</Private>
         </Reference>
         <!-- BeatSaberUI.PhysicsRaycasterWithCache 반환 타입(VRUIControls.PhysicsRaycasterWithCache)용 -->
         <Reference Include="VRUI">
             <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\VRUI.dll</HintPath>
+            <Private>false</Private>
+        </Reference>
+        <Reference Include="BeatSaber.ViewSystem">
+            <HintPath>$(BeatSaberDir)\Beat Saber_Data\Managed\BeatSaber.ViewSystem.dll</HintPath>
             <Private>false</Private>
         </Reference>
         <Reference Include="Main">
@@ -137,7 +90,29 @@
         </Reference>
     </ItemGroup>
 
-    <!-- 빌드 후 1.29.1 Plugins 로 복사 (dotnet build /p:CopyToPlugins=true) -->
+    <!-- 1.29.1 / 1.44.0 빌드는 별도 프로젝트. 메인 글롭에서 제외 -->
+    <ItemGroup>
+        <Compile Remove="1.29.1\**" />
+        <EmbeddedResource Remove="1.29.1\**" />
+        <None Remove="1.29.1\**" />
+        <Compile Remove="1.44.0\**" />
+        <EmbeddedResource Remove="1.44.0\**" />
+        <None Remove="1.44.0\**" />
+    </ItemGroup>
+
+    <!-- manifest.json 은 embedded resource 로만 포함 (None default 제거) -->
+    <ItemGroup>
+        <None Remove="manifest.json" />
+        <EmbeddedResource Include="manifest.json" />
+        <None Remove="UI\settings.bsml" />
+        <EmbeddedResource Include="UI\settings.bsml" />
+    </ItemGroup>
+
+    <!--
+        빌드 후 산출물 자동 배포 (선택):
+        dotnet build /p:CopyToPlugins=true  → 자동 복사
+        기본은 OFF 라 일반 빌드는 그냥 bin\ 에만 떨어짐.
+    -->
     <Target Name="CopyToPluginsFolder" AfterTargets="Build" Condition="'$(CopyToPlugins)' == 'true'">
         <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll"
               DestinationFolder="$(BeatSaberDir)\Plugins"

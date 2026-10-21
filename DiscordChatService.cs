@@ -13,7 +13,7 @@ using Newtonsoft.Json.Linq;
 using UnityEngine;
 using WebSocketSharp;
 
-namespace IzudisbotBSP
+namespace IzunaisbotBSP
 {
     /// <summary>
     /// Discord → BeatSaberPlus 채팅 브리지.
@@ -42,8 +42,8 @@ namespace IzudisbotBSP
         private readonly Dictionary<string, DiscordChatChannel> _channels = new Dictionary<string, DiscordChatChannel>();
 
         private WebSocket _ws;
-        private bool _running;
-        private bool _connected;
+        private volatile bool _running;
+        private volatile bool _connected;
         private Timer _reconnectTimer;
 
         // ---- 재접속 실패 추적 (무한 재접속 방지) ----
@@ -51,11 +51,10 @@ namespace IzudisbotBSP
         // 연속 MaxConsecutiveFailures 회 실패하거나, 서버가 4xxx(앱 정의) close 코드로 끊으면
         // → 토큰 무효/디스코드 미연동으로 보고 재접속을 멈추고 사용자에게 안내한다.
         private int _consecutiveFailures;
+        // 현재 소켓이 열린 시각. 매 접속 시도 시작(Connect)마다 초기화된다 —
+        // 여기에 이전 연결의 값이 남으면 "오래 유지됐다"로 오판해 실패 집계가 무력화된다.
         private DateTime _lastOpenUtc;
         private volatile bool _gaveUp;
-        // 의도적 종료(재접속/Stop)로 소켓을 닫을 땐 OnClose 를 실패로 세지 않도록 억제.
-        // websocket-sharp Close() 는 동기라 OnClose 가 Close() 안에서 발생 → 플래그로 구분 가능.
-        private volatile bool _suppressClose;
         private string _statusReason = "";
         private const int MaxConsecutiveFailures = 5;
         private const int MinHealthySeconds = 15;
@@ -73,7 +72,7 @@ namespace IzudisbotBSP
 
         // 게임 안 BSP_Chat 오버레이에 모듈 응답(!bsr/!queue/!oops 등의 결과)을 띄울 때 쓰는
         // 합성 발신자. ChatRequest/wipbot 응답을 플레이어가 게임 화면에서 직접 보도록 대리 표시한다.
-        private static readonly DiscordChatUser BotUser = new DiscordChatUser("izudisbot-bot", "izudisbot", "#5865F2");
+        private static readonly DiscordChatUser BotUser = new DiscordChatUser("izunaisbot-bot", "izunaisbot", "#5865F2");
         private readonly Dictionary<string, PendingBsr> _pendingBsr = new Dictionary<string, PendingBsr>(StringComparer.OrdinalIgnoreCase);
         private Timer _pendingGcTimer;
 
@@ -210,6 +209,49 @@ namespace IzudisbotBSP
             get { lock (_logLock) { return _lastMessageUtc; } }
         }
 
+        // ---- Bridge test (게임 → 봇 → 등록 채널에 ping 임베드) ----
+        private readonly object _testLock = new object();
+        private DateTime? _lastTestSentUtc;
+        private DateTime? _lastTestAckUtc;
+        private bool? _lastTestOk;
+        private string _lastTestDetail;
+        private string _lastTestChannelId;
+
+        public DateTime? LastTestSentUtc { get { lock (_testLock) { return _lastTestSentUtc; } } }
+        public DateTime? LastTestAckUtc { get { lock (_testLock) { return _lastTestAckUtc; } } }
+        public bool? LastTestOk { get { lock (_testLock) { return _lastTestOk; } } }
+        public string LastTestDetail { get { lock (_testLock) { return _lastTestDetail; } } }
+        public string LastTestChannelId { get { lock (_testLock) { return _lastTestChannelId; } } }
+
+        /// <summary>
+        /// 봇으로 bridge_test 메시지 전송 — 봇이 등록 채널 중 첫번째에 ping 임베드 게시.
+        /// 결과는 bridge_test_ack 로 비동기 도착 → LastTestOk/Detail 로 폴링.
+        /// </summary>
+        public bool SendBridgeTest()
+        {
+            var ws = _ws;   // 스냅샷 — 재접속으로 교체돼도 NRE 없이 진행
+            if (ws == null || !_connected) return false;
+            var obj = new JObject { ["type"] = "bridge_test" };
+            try
+            {
+                ws.Send(obj.ToString(Formatting.None));
+                lock (_testLock)
+                {
+                    _lastTestSentUtc = DateTime.UtcNow;
+                    _lastTestAckUtc = null;
+                    _lastTestOk = null;
+                    _lastTestDetail = null;
+                    _lastTestChannelId = null;
+                }
+                return true;
+            }
+            catch (Exception err)
+            {
+                _log?.Warn("bridge_test send 실패: " + err.Message);
+                return false;
+            }
+        }
+
         /// <summary>채널 목록 + 누적 수신 수 + 음소거 여부 (수신 많은 순).</summary>
         public List<ChannelInfo> GetChannels()
         {
@@ -281,8 +323,8 @@ namespace IzudisbotBSP
                 "  <input type='number' min='1' class='form-control' name='ReconnectIntervalSec' value='" + _config.ReconnectIntervalSec + "'>" +
                 "</div>" +
                 "<div class='form-check'>" +
-                "  <input type='checkbox' class='form-check-input' id='izudisbot-autoreconnect' name='AutoReconnect' " + (_config.AutoReconnect ? "checked" : "") + ">" +
-                "  <label class='form-check-label' for='izudisbot-autoreconnect'>Auto reconnect</label>" +
+                "  <input type='checkbox' class='form-check-input' id='izunaisbot-autoreconnect' name='AutoReconnect' " + (_config.AutoReconnect ? "checked" : "") + ">" +
+                "  <label class='form-check-label' for='izunaisbot-autoreconnect'>Auto reconnect</label>" +
                 "</div>";
         }
 
@@ -394,7 +436,7 @@ namespace IzudisbotBSP
             {
                 m_OnSystemMessageCallbacks?.InvokeAll(
                     (IChatService)this,
-                    "Discord: URL/Token 미설정. UserData\\izudisbot-bsp.json 편집 후 게임 재시작."
+                    "Discord: URL/Token 미설정. UserData\\izunaisbot-bsp.json 편집 후 게임 재시작."
                 );
                 _log?.Warn("Url 또는 Token 비어있음");
                 return;
@@ -403,12 +445,20 @@ namespace IzudisbotBSP
             try
             {
                 DisposeSocket();
-                _suppressClose = false;   // 새 소켓의 OnClose 는 실패로 집계해야 함
+                // 이번 시도는 아직 안 열렸다 → 직전 연결의 값 제거 (실패 집계 정확도)
+                _lastOpenUtc = default(DateTime);
+
                 // 토큰을 Cookie 헤더로 전송 (URL query 대신 — Cloudflare access log 노출 회피)
-                _ws = new WebSocket(_config.Url);
-                _ws.SetCookie(new WebSocketSharp.Net.Cookie("bsp_token", _config.Token));
-                _ws.OnOpen += (s, e) =>
+                var ws = new WebSocket(_config.Url);
+                _ws = ws;
+                ws.SetCookie(new WebSocketSharp.Net.Cookie("bsp_token", _config.Token));
+
+                // 모든 핸들러는 "자기 소켓이 아직 현재 소켓인지" 먼저 확인한다.
+                // 의도적 종료(DisposeSocket)나 재접속으로 교체된 옛 소켓의 늦은 이벤트가
+                // 새 연결의 _connected 를 덮어쓰거나 실패로 집계되는 것을 막는다.
+                ws.OnOpen += (s, e) =>
                 {
+                    if (!IsCurrent(ws)) return;
                     _connected = true;
                     _lastOpenUtc = DateTime.UtcNow;
                     SetStatus("connected");
@@ -417,16 +467,16 @@ namespace IzudisbotBSP
                     m_OnSystemMessageCallbacks?.InvokeAll((IChatService)this, "Discord: connected");
                     m_OnLoginCallbacks?.InvokeAll((IChatService)this);
                 };
-                _ws.OnMessage += (s, e) => HandleMessage(e.Data);
-                _ws.OnError += (s, e) => _log?.Warn("WS error: " + e.Message);
-                _ws.OnClose += (s, e) =>
+                ws.OnMessage += (s, e) => { if (IsCurrent(ws)) HandleMessage(e.Data); };
+                ws.OnError += (s, e) => { if (IsCurrent(ws)) _log?.Warn("WS error: " + e.Message); };
+                ws.OnClose += (s, e) =>
                 {
-                    _connected = false;
-                    if (_suppressClose)   // 의도적 종료 → 조용히 닫기만, 실패 집계/재접속 안 함
+                    if (!IsCurrent(ws))   // 의도적 종료 / 교체된 옛 소켓 → 집계·재접속 안 함
                     {
-                        _log?.Info("Closed (intentional): code=" + e.Code);
+                        _log?.Info("Closed (stale or intentional): code=" + e.Code);
                         return;
                     }
+                    _connected = false;
                     _log?.Info("Closed: code=" + e.Code + " reason=" + e.Reason);
                     m_OnSystemMessageCallbacks?.InvokeAll(
                         (IChatService)this,
@@ -434,7 +484,7 @@ namespace IzudisbotBSP
                     );
                     HandleDisconnect(e.Code, e.Reason);
                 };
-                _ws.ConnectAsync();
+                ws.ConnectAsync();
             }
             catch (Exception err)
             {
@@ -442,6 +492,9 @@ namespace IzudisbotBSP
                 ScheduleReconnect();
             }
         }
+
+        /// <summary>이 소켓이 아직 "현재" 소켓인지 (교체된 옛 소켓의 늦은 콜백 무시용).</summary>
+        private bool IsCurrent(WebSocket ws) => ReferenceEquals(ws, _ws);
 
         /// <summary>
         /// 연결이 끊겼을 때 호출 — 실패를 집계하고, 한계를 넘으면 재접속을 포기한다.
@@ -514,10 +567,12 @@ namespace IzudisbotBSP
 
         private void DisposeSocket()
         {
-            _suppressClose = true;   // 지금부터의 OnClose 는 의도적 종료 → 집계/재접속 금지
-            try { _ws?.Close(); } catch { }
-            _ws = null;
+            // _ws 를 먼저 비운다 → 이 소켓의 이후 OnClose 는 IsCurrent 실패로 무시된다.
+            var old = Interlocked.Exchange(ref _ws, null);
             _connected = false;
+            // Close() 는 동기라 호출 스레드(Stop/OnDisable = Unity 메인 스레드)를 수 초 붙잡을
+            // 수 있다 → 비동기 종료. 늦게 오는 OnClose 는 위 IsCurrent 가드로 무해하다.
+            try { old?.CloseAsync(); } catch { }
             _reconnectTimer?.Dispose();
             _reconnectTimer = null;
         }
@@ -541,6 +596,20 @@ namespace IzudisbotBSP
                 }
 
                 if (type == "pong") return;
+                if (type == "bridge_test_ack")
+                {
+                    var ok = obj["ok"]?.ToObject<bool?>() ?? false;
+                    var detail = obj["detail"]?.ToString();
+                    var channelId = obj["channelId"]?.ToString();
+                    lock (_testLock)
+                    {
+                        _lastTestAckUtc = DateTime.UtcNow;
+                        _lastTestOk = ok;
+                        _lastTestDetail = detail;
+                        _lastTestChannelId = channelId;
+                    }
+                    return;
+                }
                 if (type == "voice_count")
                 {
                     var count = obj["count"]?.ToObject<int?>() ?? 0;
@@ -804,7 +873,8 @@ namespace IzudisbotBSP
 
         private void SendBsrEvent(PendingBsr p, string status, string reason, string songName)
         {
-            if (_ws == null || !_connected) return;
+            var ws = _ws;
+            if (ws == null || !_connected) return;
             var obj = new JObject
             {
                 ["type"] = "bsr_request",
@@ -815,7 +885,7 @@ namespace IzudisbotBSP
             };
             if (!string.IsNullOrEmpty(songName)) obj["songName"] = songName;
             if (!string.IsNullOrEmpty(reason)) obj["reason"] = reason;
-            try { _ws.Send(obj.ToString(Formatting.None)); }
+            try { ws.Send(obj.ToString(Formatting.None)); }
             catch (Exception err) { _log?.Warn("bsr_request send 실패: " + err.Message); }
         }
 
@@ -893,7 +963,8 @@ namespace IzudisbotBSP
 
         private void SendCommandEvent(PendingCommand p)
         {
-            if (_ws == null || !_connected) return;
+            var ws = _ws;
+            if (ws == null || !_connected) return;
             var resp = new JArray();
             foreach (var line in p.Responses) resp.Add(line);
             var obj = new JObject
@@ -905,7 +976,7 @@ namespace IzudisbotBSP
                 ["requestedBy"] = new JObject { ["name"] = p.UserName },
                 ["responses"] = resp,
             };
-            try { _ws.Send(obj.ToString(Formatting.None)); }
+            try { ws.Send(obj.ToString(Formatting.None)); }
             catch (Exception err) { _log?.Warn("bsp_command send 실패: " + err.Message); }
         }
 
@@ -926,7 +997,8 @@ namespace IzudisbotBSP
 
         private void SendHello()
         {
-            if (_ws == null || !_connected) return;
+            var ws = _ws;
+            if (ws == null || !_connected) return;
             try
             {
                 var plugins = new JObject();
@@ -942,7 +1014,7 @@ namespace IzudisbotBSP
                     ["bsVersion"] = UnityEngine.Application.version,
                     ["plugins"] = plugins,
                 };
-                _ws.Send(obj.ToString(Formatting.None));
+                ws.Send(obj.ToString(Formatting.None));
             }
             catch (Exception err) { _log?.Warn("hello send 실패: " + err.Message); }
         }
